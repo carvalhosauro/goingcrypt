@@ -91,6 +91,7 @@ func main() {
 	linkSvc := core.NewLinkService(linkRepo, transactor, generator)
 
 	// HTTP handlers
+	healthHandler := adapthttp.NewHealthHandler()
 	authHandler := adapthttp.NewAuthHandler(authSvc)
 	linkHandler := adapthttp.NewLinkHandler(linkSvc)
 
@@ -99,6 +100,9 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(adapthttp.AuthMiddleware(tokenManager))
+
+	// Health endpoint — no auth required so probes and load-balancers can reach it freely
+	r.Route("/health", healthHandler.RegisterRoutes)
 
 	r.Route("/api/v1/auth", authHandler.RegisterRoutes)
 	r.Route("/api/v1/links", linkHandler.RegisterRoutes)
