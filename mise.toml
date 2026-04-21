@@ -1,2 +1,12 @@
 [tools]
 go = "1.25.1"
+
+[tasks]
+build = "go build -o ./bin/goingcrypt-api ./cmd/api/main.go"
+test = "go test ./..."
+test-v = "go test -v ./..."
+test-cover = "go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html"
+lint = "golangci-lint run ./..."
+fmt = "gofmt -w ."
+vet = "go vet ./..."
+tidy = "go mod tidy"
