@@ -1,4 +1,6 @@
 .omc
 .env
 
+bin/
+
 coverage.*
