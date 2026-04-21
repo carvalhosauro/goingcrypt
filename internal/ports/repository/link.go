@@ -58,6 +58,7 @@ type LinkRepository interface {
 	Create(ctx context.Context, link *domain.Link) error
 	GetBySlug(ctx context.Context, slug string) (*domain.Link, error)
 	Update(ctx context.Context, link *domain.Link) error
+	CreateAccessLog(ctx context.Context, log *domain.LinkAccessLog) error
 	InvalidateExpiredLinks(ctx context.Context) error
 	Delete(ctx context.Context, slug string) error
 	List(ctx context.Context, opts ...LinkOption) ([]domain.Link, error)
