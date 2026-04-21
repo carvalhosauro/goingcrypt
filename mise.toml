@@ -1,12 +1,55 @@
 [tools]
 go = "1.25.1"
+"go:github.com/golang-migrate/migrate/v4/cmd/migrate" = "v4.19.1"
 
-[tasks]
-build = "go build -o ./bin/goingcrypt-api ./cmd/api/main.go"
-test = "go test ./..."
-test-v = "go test -v ./..."
-test-cover = "go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html"
-lint = "golangci-lint run ./..."
-fmt = "gofmt -w ."
-vet = "go vet ./..."
-tidy = "go mod tidy"
+# ── Build ──────────────────────────────────────────────────────────────────────
+
+[tasks.build]
+description = "Compile the API binary to ./bin/goingcrypt-api"
+run = "go build -o ./bin/goingcrypt-api ./cmd/api/main.go"
+
+# ── Quality ────────────────────────────────────────────────────────────────────
+
+[tasks.fmt]
+description = "Format all Go source files"
+run = "gofmt -w ."
+
+[tasks.vet]
+description = "Run go vet on all packages"
+run = "go vet ./..."
+
+[tasks.lint]
+description = "Run golangci-lint on all packages"
+run = "golangci-lint run ./..."
+
+[tasks.tidy]
+description = "Tidy go.mod and go.sum"
+run = "go mod tidy"
+
+# ── Test ───────────────────────────────────────────────────────────────────────
+
+[tasks.test]
+description = "Run all tests"
+run = "go test ./..."
+
+[tasks.test-v]
+description = "Run all tests with verbose output"
+run = "go test -v ./..."
+
+[tasks.test-cover]
+description = "Run tests with coverage and open HTML report"
+run = "go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html"
+
+# ── Database ───────────────────────────────────────────────────────────────────
+
+[tasks.migrate-up]
+description = "Apply all pending migrations"
+run = "go run ./cmd/migrate/main.go -direction=up"
+
+[tasks.migrate-down]
+description = "Rollback migrations — append: -- -steps=1 (default: all)"
+run = "go run ./cmd/migrate/main.go -direction=down"
+
+[tasks.migrate-create]
+description = "Create a new migration pair — append: -- <migration_name>"
+run = "migrate create -seq -ext sql -dir ./cmd/migrate/migrations"
