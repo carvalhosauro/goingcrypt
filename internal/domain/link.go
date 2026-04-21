@@ -25,6 +25,15 @@ type Link struct {
     CreatedBy    *uuid.UUID `db:"created_by"`
 }
 
+func (l *Link) IsExpired() bool {
+    now := time.Now()
+    return l.ExpiresAt != nil && l.ExpiresAt.Before(now)
+}
+
+func (l *Link) Invalidate() {
+    l.Status = StatusExpired
+}
+
 type LinkAccessLogs struct {
     ID        uuid.UUID `db:"id"`
     LinkID    uuid.UUID `db:"link_id"`
