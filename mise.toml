@@ -53,3 +53,14 @@ run = "go run ./cmd/migrate/main.go -direction=down"
 [tasks.migrate-create]
 description = "Create a new migration pair — append: -- <migration_name>"
 run = "migrate create -seq -ext sql -dir ./cmd/migrate/migrations"
+
+# ── Docker ─────────────────────────────────────────────────────────────────────
+
+[tasks.docker-build]
+description = "Build Docker images injecting git version metadata"
+run = """
+docker compose build \
+  --build-arg VERSION=$(git describe --tags --always 2>/dev/null || echo dev) \
+  --build-arg COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) \
+  --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+"""

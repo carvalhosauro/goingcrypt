@@ -1,0 +1,139 @@
+name: goingcrypt
+
+x-api-env: &api-env
+  PORT: "${PORT:-8080}"
+  DATABASE_URL: "${DATABASE_URL}"
+  DB_MAX_OPEN_CONNS: "${DB_MAX_OPEN_CONNS:-25}"
+  DB_MAX_IDLE_CONNS: "${DB_MAX_IDLE_CONNS:-5}"
+  DB_MAX_IDLE_TIME: "${DB_MAX_IDLE_TIME:-5m}"
+  JWT_SECRET: "${JWT_SECRET}"
+  JWT_ISSUER: "${JWT_ISSUER:-goingcrypt}"
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: goingcrypt-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-goingcrypt}"
+      POSTGRES_USER: "${POSTGRES_USER:-goingcrypt}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    ports:
+      - "127.0.0.1:5432:5432"
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-goingcrypt} -d ${POSTGRES_DB:-goingcrypt}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+    networks:
+      - backend
+
+    security_opt:
+      - no-new-privileges:true
+    read_only: false
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder        # reuse the builder stage to get the migrate binary
+      args:
+        VERSION: "${VERSION:-dev}"
+        COMMIT: "${COMMIT:-unknown}"
+        BUILD_DATE: "${BUILD_DATE:-unknown}"
+    image: goingcrypt-migrate:${VERSION:-dev}
+    container_name: goingcrypt-migrate
+    restart: "no"           # run-once job
+
+    # Override entrypoint to run the migrate binary instead of the API
+    entrypoint: ["/out/migrate", "-direction", "up"]
+
+    environment:
+      DATABASE_URL: "${DATABASE_URL}"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    networks:
+      - backend
+
+    security_opt:
+      - no-new-privileges:true
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: final
+      args:
+        VERSION: "${VERSION:-dev}"
+        COMMIT: "${COMMIT:-unknown}"
+        BUILD_DATE: "${BUILD_DATE:-unknown}"
+    image: goingcrypt-api:${VERSION:-dev}
+    container_name: goingcrypt-api
+    restart: unless-stopped
+
+    environment:
+      <<: *api-env
+
+    ports:
+      - "${HOST_PORT:-8080}:8080"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+        reservations:
+          cpus: "0.25"
+          memory: 64M
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    # Mount a writable tmpfs for anything the process needs to write at runtime
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+    # Disable ICC so containers can only talk to each other through explicit links
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "false"
+
+volumes:
+  postgres_data:
+    driver: local
