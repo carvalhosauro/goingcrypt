@@ -1,0 +1,2 @@
+-- Dropping the extension is intentionally a no-op.
+-- It may be used by other tables; removing it unconditionally is unsafe.
