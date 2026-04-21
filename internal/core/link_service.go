@@ -12,7 +12,7 @@ import (
 	"github.com/carvalhosauro/goingcrypt/internal/domain"
 	"github.com/carvalhosauro/goingcrypt/internal/ports"
 	"github.com/carvalhosauro/goingcrypt/internal/ports/repository"
-	"github.com/google/uuid"
+	"github.com/carvalhosauro/goingcrypt/internal/ports/services"
 )
 
 var ErrLinkNotFound = errors.New("link not found or expired")
@@ -27,21 +27,10 @@ func NewLinkService(linkRepo repository.LinkRepository, transactor repository.Tr
 	return &LinkService{linkRepo: linkRepo, transactor: transactor}
 }
 
-type AccessLinkInput struct {
-	Slug      string
-	Key       string
-	IPAddress string
-	UserAgent string
-}
-
-type AccessLinkOutput struct {
-	CipheredText string
-}
-
-func (s *LinkService) AccessLink(ctx context.Context, in AccessLinkInput) (AccessLinkOutput, error) {
+func (s *LinkService) AccessLink(ctx context.Context, in services.AccessLinkInput) (services.AccessLinkOutput, error) {
 	link, err := s.linkRepo.GetBySlug(ctx, in.Slug)
 	if err != nil {
-		return AccessLinkOutput{}, fmt.Errorf("fetching link: %w", err)
+		return services.AccessLinkOutput{}, fmt.Errorf("fetching link: %w", err)
 	}
 
 	if link == nil || !link.CanAccess() {
@@ -50,18 +39,18 @@ func (s *LinkService) AccessLink(ctx context.Context, in AccessLinkInput) (Acces
 				_ = s.linkRepo.Update(ctx, link)
 			}
 		}
-		return AccessLinkOutput{}, ErrLinkNotFound
+		return services.AccessLinkOutput{}, ErrLinkNotFound
 	}
 
 	hashedKey := sha256.Sum256([]byte(in.Key))
 	hashedKeyHex := hex.EncodeToString(hashedKey[:])
 	if subtle.ConstantTimeCompare([]byte(link.HashedKey), []byte(hashedKeyHex)) != 1 {
-		return AccessLinkOutput{}, ErrLinkNotFound
+		return services.AccessLinkOutput{}, ErrLinkNotFound
 	}
 
 	cipheredText, err := link.Open()
 	if err != nil {
-		return AccessLinkOutput{}, fmt.Errorf("opening link: %w", err)
+		return services.AccessLinkOutput{}, fmt.Errorf("opening link: %w", err)
 	}
 
 	accessLog := &domain.LinkAccessLog{
@@ -80,32 +69,21 @@ func (s *LinkService) AccessLink(ctx context.Context, in AccessLinkInput) (Acces
 		}
 		return nil
 	}); err != nil {
-		return AccessLinkOutput{}, err
+		return services.AccessLinkOutput{}, err
 	}
 
-	return AccessLinkOutput{CipheredText: cipheredText}, nil
+	return services.AccessLinkOutput{CipheredText: cipheredText}, nil
 }
 
-type CreateLinkInput struct {
-	Key          string
-	CipheredText string
-	ExpiresIn    *time.Duration
-	CreatedBy    *uuid.UUID
-}
-
-type CreateLinkOutput struct {
-	Slug string
-}
-
-func (s *LinkService) CreateLink(ctx context.Context, in CreateLinkInput) (CreateLinkOutput, error) {
+func (s *LinkService) CreateLink(ctx context.Context, in services.CreateLinkInput) (services.CreateLinkOutput, error) {
 	id, err := s.generator.GenerateUUID(ctx)
 	if err != nil {
-		return CreateLinkOutput{}, fmt.Errorf("generating uuid: %w", err)
+		return services.CreateLinkOutput{}, fmt.Errorf("generating uuid: %w", err)
 	}
 
 	slug, err := s.generator.GenerateSlug(ctx, id.String())
 	if err != nil {
-		return CreateLinkOutput{}, fmt.Errorf("generating slug: %w", err)
+		return services.CreateLinkOutput{}, fmt.Errorf("generating slug: %w", err)
 	}
 
 	hashedKey := sha256.Sum256([]byte(in.Key))
@@ -126,20 +104,15 @@ func (s *LinkService) CreateLink(ctx context.Context, in CreateLinkInput) (Creat
 	}
 
 	if err := s.linkRepo.Create(ctx, link); err != nil {
-		return CreateLinkOutput{}, fmt.Errorf("creating link: %w", err)
+		return services.CreateLinkOutput{}, fmt.Errorf("creating link: %w", err)
 	}
 
-	return CreateLinkOutput{
+	return services.CreateLinkOutput{
 		Slug: link.Slug,
 	}, nil
 }
 
-type DeleteLinkInput struct {
-	Slug string
-	UserID uuid.UUID
-}
-
-func (s *LinkService) DeleteLink(ctx context.Context, in DeleteLinkInput) error {
+func (s *LinkService) DeleteLink(ctx context.Context, in services.DeleteLinkInput) error {
 	link, err := s.linkRepo.GetBySlug(ctx, in.Slug)
 	if err != nil {
 		return fmt.Errorf("fetching link: %w", err)
