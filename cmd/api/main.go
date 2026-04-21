@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/carvalhosauro/goingcrypt/adapters"
 	adapthttp "github.com/carvalhosauro/goingcrypt/adapters/http"
@@ -13,6 +18,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/joho/godotenv"
+	_ "go.uber.org/automaxprocs" // auto-sets GOMAXPROCS to the cgroup CPU quota
 )
 
 type dbConfig struct {
@@ -28,9 +34,10 @@ type jwtConfig struct {
 }
 
 type config struct {
-	port string
-	db   dbConfig
-	jwt  jwtConfig
+	port            string
+	shutdownTimeout time.Duration
+	db              dbConfig
+	jwt             jwtConfig
 }
 
 func main() {
@@ -40,7 +47,8 @@ func main() {
 	}
 
 	cfg := config{
-		port: env.GetString("PORT", "8080"),
+		port:            env.GetString("PORT", "8080"),
+		shutdownTimeout: 30 * time.Second,
 		db: dbConfig{
 			addr:         env.GetString("DATABASE_URL", ""),
 			maxOpenConns: env.GetInt("DB_MAX_OPEN_CONNS", 25),
@@ -101,16 +109,43 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(adapthttp.AuthMiddleware(tokenManager))
 
-	// Health endpoint — no auth required so probes and load-balancers can reach it freely
 	r.Route("/health", healthHandler.RegisterRoutes)
-
 	r.Route("/api/v1/auth", authHandler.RegisterRoutes)
 	r.Route("/api/v1/links", linkHandler.RegisterRoutes)
 
-	// Server
-	addr := fmt.Sprintf(":%s", cfg.port)
-	log.Printf("server listening on %s", addr)
-	if err := http.ListenAndServe(addr, r); err != nil {
+	srv := &http.Server{
+		Addr:         fmt.Sprintf(":%s", cfg.port),
+		Handler:      r,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	serverErr := make(chan error, 1)
+	go func() {
+		log.Printf("server listening on %s", srv.Addr)
+		serverErr <- srv.ListenAndServe()
+	}()
+
+	// Block until we receive SIGTERM (sent by Docker/k8s) or SIGINT (Ctrl+C).
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	select {
+	case err := <-serverErr:
 		log.Fatalf("server error: %v", err)
+
+	case sig := <-quit:
+		log.Printf("received signal %s — initiating graceful shutdown", sig)
+	}
+
+	// Give in-flight requests up to shutdownTimeout to finish.
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.shutdownTimeout)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("forced shutdown after timeout: %v", err)
+	} else {
+		log.Println("server shut down cleanly")
 	}
 }
