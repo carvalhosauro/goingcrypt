@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"time"
 
@@ -15,16 +14,14 @@ import (
 	"github.com/carvalhosauro/goingcrypt/internal/ports/services"
 )
 
-var ErrLinkNotFound = errors.New("link not found or expired")
-
 type LinkService struct {
 	linkRepo   repository.LinkRepository
 	transactor repository.Transactor
-	generator ports.Generator
+	generator  ports.Generator
 }
 
-func NewLinkService(linkRepo repository.LinkRepository, transactor repository.Transactor) *LinkService {
-	return &LinkService{linkRepo: linkRepo, transactor: transactor}
+func NewLinkService(linkRepo repository.LinkRepository, transactor repository.Transactor, generator ports.Generator) *LinkService {
+	return &LinkService{linkRepo: linkRepo, transactor: transactor, generator: generator}
 }
 
 func (s *LinkService) AccessLink(ctx context.Context, in services.AccessLinkInput) (services.AccessLinkOutput, error) {
@@ -39,13 +36,13 @@ func (s *LinkService) AccessLink(ctx context.Context, in services.AccessLinkInpu
 				_ = s.linkRepo.Update(ctx, link)
 			}
 		}
-		return services.AccessLinkOutput{}, ErrLinkNotFound
+		return services.AccessLinkOutput{}, domain.ErrLinkNotFound
 	}
 
 	hashedKey := sha256.Sum256([]byte(in.Key))
 	hashedKeyHex := hex.EncodeToString(hashedKey[:])
 	if subtle.ConstantTimeCompare([]byte(link.HashedKey), []byte(hashedKeyHex)) != 1 {
-		return services.AccessLinkOutput{}, ErrLinkNotFound
+		return services.AccessLinkOutput{}, domain.ErrLinkNotFound
 	}
 
 	cipheredText, err := link.Open()
@@ -118,10 +115,10 @@ func (s *LinkService) DeleteLink(ctx context.Context, in services.DeleteLinkInpu
 		return fmt.Errorf("fetching link: %w", err)
 	}
 	if link == nil {
-		return ErrLinkNotFound
+		return domain.ErrLinkNotFound
 	}
 	if link.CreatedBy != nil && *link.CreatedBy != in.UserID {
-		return ErrLinkNotFound
+		return domain.ErrLinkNotFound
 	}
 
 	if err := s.linkRepo.Delete(ctx, in.Slug); err != nil {
