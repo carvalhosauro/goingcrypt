@@ -133,3 +133,27 @@ func (s *LinkService) CreateLink(ctx context.Context, in CreateLinkInput) (Creat
 		Slug: link.Slug,
 	}, nil
 }
+
+type DeleteLinkInput struct {
+	Slug string
+	UserID uuid.UUID
+}
+
+func (s *LinkService) DeleteLink(ctx context.Context, in DeleteLinkInput) error {
+	link, err := s.linkRepo.GetBySlug(ctx, in.Slug)
+	if err != nil {
+		return fmt.Errorf("fetching link: %w", err)
+	}
+	if link == nil {
+		return ErrLinkNotFound
+	}
+	if link.CreatedBy != nil && *link.CreatedBy != in.UserID {
+		return ErrLinkNotFound
+	}
+
+	if err := s.linkRepo.Delete(ctx, in.Slug); err != nil {
+		return fmt.Errorf("deleting link: %w", err)
+	}
+
+	return nil
+}
