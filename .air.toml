@@ -1,0 +1,20 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/main ./cmd/api"
+  entrypoint = ["./tmp/main"]
+  include_ext = ["go"]
+  exclude_dir  = ["docs", "bin", "tmp", ".git", "cmd/migrate/migrations"]
+  delay = 300
+  send_interrupt = true
+  kill_delay     = "500ms"
+
+[log]
+  time = false
+
+[color]
+  main    = "magenta"
+  watcher = "cyan"
+  build   = "yellow"
+  runner  = "green"

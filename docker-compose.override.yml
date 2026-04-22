@@ -1,0 +1,30 @@
+
+services:
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrate
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: ""          # clear the inherited "final" stage from docker-compose.yml
+    image: goingcrypt-api-dev
+    read_only: false
+    deploy: {}
+    volumes:
+      - .:/app
+      - go_pkg_cache:/root/go/pkg
+    environment:
+      PORT: "${PORT:-8080}"
+      DATABASE_URL: "${DATABASE_URL}"
+      DB_MAX_OPEN_CONNS: "${DB_MAX_OPEN_CONNS:-25}"
+      DB_MAX_IDLE_CONNS: "${DB_MAX_IDLE_CONNS:-5}"
+      DB_MAX_IDLE_TIME: "${DB_MAX_IDLE_TIME:-5m}"
+      JWT_SECRET: "${JWT_SECRET}"
+      JWT_ISSUER: "${JWT_ISSUER:-goingcrypt}"
+
+volumes:
+  go_pkg_cache:

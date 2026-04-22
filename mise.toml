@@ -1,12 +1,15 @@
 [tools]
 go = "1.25.1"
-"go:github.com/golang-migrate/migrate/v4/cmd/migrate" = "v4.19.1"
 
 # ── Build ──────────────────────────────────────────────────────────────────────
 
 [tasks.build]
 description = "Compile the API binary to ./bin/goingcrypt-api"
 run = "go build -o ./bin/goingcrypt-api ./cmd/api/main.go"
+
+[tasks.dev]
+description = "Run the API locally with hot reload (requires air: go install github.com/air-verse/air@latest)"
+run = "air -c .air.toml"
 
 # ── Quality ────────────────────────────────────────────────────────────────────
 
@@ -38,7 +41,7 @@ run = "go test -v ./..."
 
 [tasks.test-cover]
 description = "Run tests with coverage and open HTML report"
-run = "go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html"
+run = "go test -coverprofile=temp/coverage.out ./... && go tool cover -html=temp/coverage.out -o temp/coverage.html"
 
 # ── Database ───────────────────────────────────────────────────────────────────
 
@@ -55,6 +58,14 @@ description = "Create a new migration pair — append: -- <migration_name>"
 run = "migrate create -seq -ext sql -dir ./cmd/migrate/migrations"
 
 # ── Docker ─────────────────────────────────────────────────────────────────────
+
+[tasks.docker-up]
+description = "Start all services with hot reload (dev mode via docker-compose.override.yml)"
+run = "docker compose up"
+
+[tasks.docker-up-prod]
+description = "Start all services in production mode (override ignored)"
+run = "docker compose -f docker-compose.yml up"
 
 [tasks.docker-build]
 description = "Build Docker images injecting git version metadata"
