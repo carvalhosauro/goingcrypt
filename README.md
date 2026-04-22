@@ -194,4 +194,4 @@ go run ./cmd/api
 
 ## License
 
-MIT
+GNU General Public License version 2 (GPL-2.0)
