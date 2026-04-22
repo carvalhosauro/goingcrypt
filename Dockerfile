@@ -33,6 +33,19 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
       -o /out/migrate \
       ./cmd/migrate
 
+FROM scratch AS migrate
+
+# Copy CA certs for TLS connections to the database
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# Copy only the migrate binary
+COPY --from=builder /out/migrate /out/migrate
+
+# Copy migrations to the well-known absolute path the binary checks first
+COPY --from=builder /app/cmd/migrate/migrations /migrations
+
+ENTRYPOINT ["/out/migrate"]
+
 FROM scratch AS final
 
 # Copy CA certificates so HTTPS calls inside the container work

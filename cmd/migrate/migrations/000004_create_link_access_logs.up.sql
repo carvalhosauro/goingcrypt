@@ -1,5 +1,5 @@
 CREATE TABLE link_access_logs (
-    id         UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id         UUID PRIMARY KEY,
     link_id    UUID UNIQUE NOT NULL REFERENCES links(id) ON DELETE CASCADE,
     ip_address INET,
     user_agent TEXT,

@@ -5,7 +5,7 @@ EXCEPTION
 END $$;
 
 CREATE TABLE users (
-    id          UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id          UUID PRIMARY KEY,
     username    VARCHAR(50) UNIQUE NOT NULL,
     password    TEXT NOT NULL,
     mfa_enabled BOOLEAN DEFAULT FALSE,

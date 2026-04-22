@@ -1,5 +1,5 @@
 CREATE TABLE links (
-    id            UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id            UUID PRIMARY KEY,
     slug          VARCHAR(22) NOT NULL UNIQUE,
     hashed_key    CHAR(64)    NOT NULL UNIQUE,
     ciphered_text TEXT        NOT NULL,

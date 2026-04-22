@@ -1,5 +1,5 @@
 CREATE TABLE refresh_tokens (
-    id          UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id          UUID PRIMARY KEY,
     user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token_hash  CHAR(64) NOT NULL UNIQUE,
     device_name VARCHAR(100),
@@ -14,4 +14,4 @@ CREATE TABLE refresh_tokens (
 CREATE INDEX idx_rt_user_id         ON refresh_tokens(user_id);
 CREATE INDEX idx_rt_token_hash      ON refresh_tokens(token_hash);
 CREATE INDEX idx_rt_active_sessions ON refresh_tokens(user_id)
-    WHERE revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP;
+    WHERE revoked_at IS NULL;

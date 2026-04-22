@@ -1,0 +1,19 @@
+FROM postgres:17-alpine
+
+# Install build dependencies
+RUN apk add --no-cache \
+    build-base \
+    clang \
+    llvm \
+    postgresql-dev \
+    git
+
+# Clone and build pg_uuidv7
+RUN git clone --depth 1 https://github.com/fboulnois/pg_uuidv7.git /tmp/pg_uuidv7 \
+    && cd /tmp/pg_uuidv7 \
+    && make \
+    && make install \
+    && rm -rf /tmp/pg_uuidv7
+
+# Clean up build deps to keep image lean
+RUN apk del build-base clang llvm git

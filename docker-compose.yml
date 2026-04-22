@@ -45,7 +45,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: builder        # reuse the builder stage to get the migrate binary
+      target: migrate
       args:
         VERSION: "${VERSION:-dev}"
         COMMIT: "${COMMIT:-unknown}"
@@ -54,8 +54,7 @@ services:
     container_name: goingcrypt-migrate
     restart: "no"           # run-once job
 
-    # Override entrypoint to run the migrate binary instead of the API
-    entrypoint: ["/out/migrate", "-direction", "up"]
+    command: ["-direction", "up"]
 
     environment:
       DATABASE_URL: "${DATABASE_URL}"
@@ -130,9 +129,6 @@ services:
 networks:
   backend:
     driver: bridge
-    # Disable ICC so containers can only talk to each other through explicit links
-    driver_opts:
-      com.docker.network.bridge.enable_icc: "false"
 
 volumes:
   postgres_data:
