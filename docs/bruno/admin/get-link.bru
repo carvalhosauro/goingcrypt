@@ -1,0 +1,39 @@
+meta {
+  name: Get Link
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/api/v1/admin/links/{{link_slug}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+docs {
+  Returns the full details of a single link identified by its slug.
+
+  **Requires**: `Authorization: Bearer <access_token>`
+
+  **Path parameter**: `slug` — the short identifier of the link.
+
+  **Response body**
+  | Field              | Type      | Description                          |
+  |--------------------|-----------|--------------------------------------|
+  | link.slug          | string    | Short public identifier              |
+  | link.status        | string    | WAITING \| OPENED \| EXPIRED         |
+  | link.created_by    | uuid\|null | UUID of the owner, null if anonymous |
+  | link.expires_at    | time\|null | Expiration timestamp, null if none   |
+  | link.created_at    | time      | Creation timestamp                   |
+
+  **Responses**
+  | Status | Meaning                      |
+  |--------|------------------------------|
+  | 200    | OK — link detail             |
+  | 401    | Unauthorized (not logged in) |
+  | 404    | Link not found               |
+}
