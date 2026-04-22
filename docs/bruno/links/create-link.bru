@@ -1,0 +1,50 @@
+meta {
+  name: Create Link
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/api/v1/links
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "key": "my-secret-passphrase",
+    "ciphered_text": "U2FsdGVkX1+abc123...base64encodedciphertext",
+    "expires_in": "24h"
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setVar("link_slug", res.body.slug);
+  }
+}
+
+docs {
+  Creates an encrypted link. The `ciphered_text` is the client-side encrypted
+  payload and `key` is used to derive the decryption key on access.
+
+  **Auth**: Optional — authenticated users own the link (enables deletion).
+  Unauthenticated requests create anonymous links.
+
+  **Request body**
+  | Field         | Type   | Required | Description                                             |
+  |---------------|--------|----------|---------------------------------------------------------|
+  | key           | string | ✅       | Passphrase/key used to encrypt/decrypt the payload      |
+  | ciphered_text | string | ✅       | Client-side encrypted payload (Base64 or raw cipher)    |
+  | expires_in    | string | ❌       | Go duration string: `24h`, `30m`, `7d`, etc.            |
+
+  **Responses**
+  | Status | Meaning             |
+  |--------|---------------------|
+  | 201    | Link created — slug |
+  | 400    | Validation error    |
+}

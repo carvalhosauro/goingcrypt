@@ -1,0 +1,44 @@
+meta {
+  name: Confirm MFA
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{base_url}}/api/v1/auth/mfa/confirm
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "secret": "{{mfa_secret}}",
+    "code": "123456"
+  }
+}
+
+docs {
+  Confirms MFA enrollment by validating the TOTP code against the secret
+  returned by `Enable MFA`. Once confirmed, `mfa_enabled` is persisted and
+  subsequent logins will require a TOTP code.
+
+  **Request body**
+  | Field  | Type   | Required | Description                                           |
+  |--------|--------|----------|-------------------------------------------------------|
+  | secret | string | ✅       | The secret returned by `Enable MFA`                   |
+  | code   | string | ✅       | 6-digit TOTP code from Google Authenticator           |
+
+  **Requires**: `Authorization: Bearer <access_token>`
+
+  **Responses**
+  | Status | Meaning                                       |
+  |--------|-----------------------------------------------|
+  | 204    | MFA activated — no body returned              |
+  | 400    | MFA already enabled or invalid code           |
+  | 401    | Unauthorized                                  |
+  | 404    | User not found                                |
+}

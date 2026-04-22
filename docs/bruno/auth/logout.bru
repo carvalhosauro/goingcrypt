@@ -1,0 +1,28 @@
+meta {
+  name: Logout
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{base_url}}/api/v1/auth/logout
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "refresh_token": "{{refresh_token}}"
+  }
+}
+
+docs {
+  Revokes the given refresh token, effectively logging the device out.
+  The access token remains valid until it expires (short-lived by design).
+
+  **Responses**
+  | Status | Meaning                     |
+  |--------|-----------------------------|
+  | 204    | Token revoked successfully  |
+  | 401    | Invalid or expired token    |
+}

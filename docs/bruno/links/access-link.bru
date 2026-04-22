@@ -1,0 +1,39 @@
+meta {
+  name: Access Link
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/api/v1/links/{{link_slug}}
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "key": "my-secret-passphrase"
+  }
+}
+
+docs {
+  Retrieves the encrypted payload for a given link slug.
+  The client must provide the `key` to allow server-side key matching.
+
+  **Note**: Decryption happens client-side. The server only returns
+  `ciphered_text`; the client uses `key` to decrypt locally.
+
+  **Path parameter**: `slug` — the short identifier returned by Create Link.
+
+  **Request body**
+  | Field | Type   | Required | Description                              |
+  |-------|--------|----------|------------------------------------------|
+  | key   | string | ✅       | Passphrase used when the link was created |
+
+  **Responses**
+  | Status | Meaning                  |
+  |--------|--------------------------|
+  | 200    | `ciphered_text` in body  |
+  | 400    | Missing key              |
+  | 404    | Link not found           |
+}

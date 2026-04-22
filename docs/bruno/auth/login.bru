@@ -1,0 +1,51 @@
+meta {
+  name: Login
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/api/v1/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "gustavo",
+    "password": "supersecret123",
+    "device_name": "bruno-client"
+  }
+}
+
+script:post-response {
+  if (res.status === 200 && res.body.access_token) {
+    bru.setVar("access_token", res.body.access_token);
+    bru.setVar("refresh_token", res.body.refresh_token);
+  }
+}
+
+docs {
+  Authenticates a user. Two possible success flows:
+
+  **Flow 1 — MFA not enabled**
+  Returns `access_token` and `refresh_token` immediately.
+
+  **Flow 2 — MFA enabled**
+  Returns `{ "mfa_required": true }`. The client must re-send the request
+  including the `mfa_code` field (6-digit TOTP from Google Authenticator).
+
+  **Request body**
+  | Field        | Type   | Required | Description                                         |
+  |--------------|--------|----------|-----------------------------------------------------|
+  | username     | string | ✅       |                                                     |
+  | password     | string | ✅       |                                                     |
+  | mfa_code     | string | ❌       | 6-digit TOTP code — include to complete MFA in one step |
+  | device_name  | string | ❌       | Human-readable device label                         |
+
+  **Responses**
+  | Status | Meaning                                            |
+  |--------|----------------------------------------------------|
+  | 200    | Authenticated — tokens in body (or mfa_required)  |
+  | 401    | Invalid credentials or invalid MFA code            |
+}

@@ -1,0 +1,44 @@
+meta {
+  name: Sign Up
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/api/v1/auth/signup
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "gustavo",
+    "password": "supersecret123",
+    "device_name": "bruno-client"
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setVar("access_token", res.body.access_token);
+    bru.setVar("refresh_token", res.body.refresh_token);
+  }
+}
+
+docs {
+  Creates a new user account and returns a JWT access token and a refresh token.
+
+  **Request body**
+  | Field        | Type   | Required | Description                             |
+  |--------------|--------|----------|-----------------------------------------|
+  | username     | string | ✅       | 3–32 characters                         |
+  | password     | string | ✅       | Minimum 8 characters                    |
+  | device_name  | string | ❌       | Human-readable device label (optional)  |
+
+  **Responses**
+  | Status | Meaning                            |
+  |--------|------------------------------------|
+  | 201    | User created — tokens in body      |
+  | 400    | Validation error                   |
+  | 409    | Username already taken             |
+}

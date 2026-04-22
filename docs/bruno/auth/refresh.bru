@@ -1,0 +1,36 @@
+meta {
+  name: Refresh Tokens
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/api/v1/auth/refresh
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "refresh_token": "{{refresh_token}}",
+    "device_name": "bruno-client"
+  }
+}
+
+script:post-response {
+  if (res.status === 200) {
+    bru.setVar("access_token", res.body.access_token);
+    bru.setVar("refresh_token", res.body.refresh_token);
+  }
+}
+
+docs {
+  Rotates the refresh token. The provided token is revoked and a new
+  access + refresh token pair is returned.
+
+  **Responses**
+  | Status | Meaning                                |
+  |--------|----------------------------------------|
+  | 200    | New token pair returned                |
+  | 401    | Invalid, expired or already-used token |
+}

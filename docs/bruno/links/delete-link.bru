@@ -1,0 +1,31 @@
+meta {
+  name: Delete Link
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{base_url}}/api/v1/links/{{link_slug}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+docs {
+  Deletes a link owned by the authenticated user.
+  Only the user who created the link can delete it.
+
+  **Requires**: `Authorization: Bearer <access_token>`
+
+  **Path parameter**: `slug` — the short identifier of the link.
+
+  **Responses**
+  | Status | Meaning                             |
+  |--------|-------------------------------------|
+  | 204    | Link deleted                        |
+  | 401    | Unauthorized (not logged in)        |
+  | 404    | Link not found or not owned by user |
+}

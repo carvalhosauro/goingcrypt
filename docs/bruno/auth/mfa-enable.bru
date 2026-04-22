@@ -1,0 +1,43 @@
+meta {
+  name: Enable MFA
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{base_url}}/api/v1/auth/mfa/enable
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+script:post-response {
+  if (res.status === 200) {
+    bru.setVar("mfa_secret", res.body.secret);
+    console.log("Provisioning URI:", res.body.provisioning_uri);
+    console.log("Scan the QR from the URI above using Google Authenticator");
+  }
+}
+
+docs {
+  Generates a TOTP secret and a `provisioning_uri` (otpauth://) for the
+  authenticated user. **MFA is NOT yet active** after this call.
+
+  Steps:
+  1. Call this endpoint to get `secret` and `provisioning_uri`.
+  2. Scan the QR code (convert `provisioning_uri` to QR) in Google Authenticator.
+  3. Call `POST /mfa/confirm` with the 6-digit code to activate MFA.
+
+  **Requires**: `Authorization: Bearer <access_token>`
+
+  **Responses**
+  | Status | Meaning                         |
+  |--------|---------------------------------|
+  | 200    | Secret and provisioning URI     |
+  | 400    | MFA already enabled             |
+  | 401    | Unauthorized                    |
+  | 404    | User not found                  |
+}
