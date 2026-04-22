@@ -21,10 +21,23 @@ body:json {
   }
 }
 
+script:post-response {
+  if (res.status === 200) {
+    bru.setVar("recovery_codes", JSON.stringify(res.body.recovery_codes));
+    console.log("⚠️  Store these recovery codes securely — they will not be shown again:");
+    res.body.recovery_codes.forEach((c, i) => console.log(`  ${i + 1}. ${c}`));
+  }
+}
+
 docs {
   Confirms MFA enrollment by validating the TOTP code against the secret
   returned by `Enable MFA`. Once confirmed, `mfa_enabled` is persisted and
   subsequent logins will require a TOTP code.
+
+  **On success**, 8 single-use recovery codes are returned. These codes are shown
+  **exactly once** and are never stored in plain text — save them somewhere safe
+  (password manager, printed paper, etc.). They are used via `POST /recovery/confirm`
+  if the user ever loses access to their authenticator app.
 
   **Request body**
   | Field  | Type   | Required | Description                                           |
@@ -35,10 +48,10 @@ docs {
   **Requires**: `Authorization: Bearer <access_token>`
 
   **Responses**
-  | Status | Meaning                                       |
-  |--------|-----------------------------------------------|
-  | 204    | MFA activated — no body returned              |
-  | 400    | MFA already enabled or invalid code           |
-  | 401    | Unauthorized                                  |
-  | 404    | User not found                                |
+  | Status | Meaning                                            |
+  |--------|----------------------------------------------------|
+  | 200    | MFA activated — recovery codes returned (one-time) |
+  | 400    | MFA already enabled or invalid code                |
+  | 401    | Unauthorized                                       |
+  | 404    | User not found                                     |
 }

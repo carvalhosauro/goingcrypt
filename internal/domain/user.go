@@ -5,16 +5,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 type User struct {
-	ID         uuid.UUID      `db:"id"`
-	Username   string         `db:"username"`
-	Password   string         `db:"password"`
-	MfaEnabled bool           `db:"mfa_enabled"`
-	MfaSecret  sql.NullString `db:"mfa_secret"`
-	CreatedAt  time.Time      `db:"created_at"`
-	DeletedAt  *time.Time     `db:"deleted_at"`
+	ID            uuid.UUID      `db:"id"`
+	Username      string         `db:"username"`
+	Password      string         `db:"password"`
+	MfaEnabled    bool           `db:"mfa_enabled"`
+	MfaSecret     sql.NullString `db:"mfa_secret"`
+	RecoveryCodes pq.StringArray `db:"recovery_codes"`
+	CreatedAt     time.Time      `db:"created_at"`
+	DeletedAt     *time.Time     `db:"deleted_at"`
 }
 
 func (u *User) IsDeleted() bool {

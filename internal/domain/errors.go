@@ -13,4 +13,5 @@ var (
 	ErrInvalidMFACode      = errors.New("invalid MFA code")
 	ErrMFAAlreadyEnabled   = errors.New("MFA already enabled")
 	ErrMFANotEnabled       = errors.New("MFA not enabled")
+	ErrInvalidRecoveryCode = errors.New("invalid or expired recovery code")
 )

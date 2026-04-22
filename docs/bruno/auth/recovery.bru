@@ -1,5 +1,5 @@
 meta {
-  name: Recovery
+  name: Recovery (REMOVED)
   type: http
   seq: 8
 }
@@ -17,18 +17,16 @@ body:json {
 }
 
 docs {
-  Initiates the account recovery flow for a user who lost access to their MFA device.
+  ⚠️  **This endpoint no longer exists.**
 
-  **Request body**
-  | Field    | Type   | Required | Description                  |
-  |----------|--------|----------|------------------------------|
-  | username | string | ✅       | The username of the account  |
+  Recovery codes are generated once, at the moment MFA is confirmed
+  (`POST /mfa/confirm`). There is no public endpoint to regenerate them
+  because any unauthenticated caller who knows the username could invalidate
+  the owner's recovery codes — a clear security issue.
 
-  **Responses**
-  | Status | Meaning                                                    |
-  |--------|------------------------------------------------------------|
-  | 200    | Recovery initiated — check your recovery codes             |
-  | 400    | Validation error                                           |
-  | 404    | User not found                                             |
-  | 501    | Not yet implemented                                        |
+  **Recovery flow:**
+  1. `POST /mfa/confirm` → returns 8 one-time codes on MFA activation.
+  2. User stores the codes securely (password manager, printed paper, etc.).
+  3. If the user loses their MFA device, they use `POST /recovery/confirm`
+     with one of those codes to reset their password and disable MFA.
 }
