@@ -85,6 +85,29 @@ type ConfirmMFAInput struct {
 	Code   string
 }
 
+// ConfirmMFAOutput contains the one-time recovery codes generated when MFA
+// is activated. The codes are shown exactly once and must be stored securely
+// by the client — there is no way to retrieve them again.
+type ConfirmMFAOutput struct {
+	RecoveryCodes []string
+}
+
+// RecoveryConfirmInput finalizes recovery: validates a single-use recovery
+// code, resets the password and disables MFA. New tokens are issued on success.
+type RecoveryConfirmInput struct {
+	Username     string
+	RecoveryCode string
+	NewPassword  string
+	DeviceName   string
+	IPAddress    string
+	UserAgent    string
+}
+
+type RecoveryConfirmOutput struct {
+	AccessToken  string
+	RefreshToken string
+}
+
 type AuthService interface {
 	SignUp(ctx context.Context, in SignUpInput) (SignUpOutput, error)
 	Login(ctx context.Context, in LoginInput) (LoginOutput, error)
@@ -92,5 +115,6 @@ type AuthService interface {
 	RefreshTokens(ctx context.Context, in RefreshTokensInput) (RefreshTokensOutput, error)
 	Logout(ctx context.Context, in LogoutInput) error
 	EnableMFA(ctx context.Context, in EnableMFAInput) (EnableMFAOutput, error)
-	ConfirmMFA(ctx context.Context, in ConfirmMFAInput) error
+	ConfirmMFA(ctx context.Context, in ConfirmMFAInput) (ConfirmMFAOutput, error)
+	RecoveryConfirm(ctx context.Context, in RecoveryConfirmInput) (RecoveryConfirmOutput, error)
 }

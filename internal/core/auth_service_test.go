@@ -583,15 +583,16 @@ func TestConfirmMFA_HappyPath(t *testing.T) {
 	f.userRepo.On("GetByID", mock.Anything, userID).Return(user, nil)
 	f.totp.On("Validate", mock.Anything, "SECRET", "123456").Return(true)
 	f.userRepo.On("Update", mock.Anything, mock.MatchedBy(func(u *domain.User) bool {
-		return u.MfaEnabled && u.MfaSecret.Valid && u.MfaSecret.String == "SECRET"
+		return u.MfaEnabled && u.MfaSecret.Valid && u.MfaSecret.String == "SECRET" && len(u.RecoveryCodes) == 8
 	})).Return(nil)
 
-	err := f.svc.ConfirmMFA(context.Background(), services.ConfirmMFAInput{
+	out, err := f.svc.ConfirmMFA(context.Background(), services.ConfirmMFAInput{
 		UserID: userID, Secret: "SECRET", Code: "123456",
 	})
 
 	assert.NoError(t, err)
 	assert.True(t, user.MfaEnabled)
+	assert.Len(t, out.RecoveryCodes, 8, "should return 8 one-time recovery codes")
 	assertExpectations(t, f)
 }
 
@@ -601,7 +602,7 @@ func TestConfirmMFA_GetByIDError(t *testing.T) {
 	userID := uuid.New()
 	f.userRepo.On("GetByID", mock.Anything, userID).Return(nil, dbErr)
 
-	err := f.svc.ConfirmMFA(context.Background(), services.ConfirmMFAInput{UserID: userID})
+	_, err := f.svc.ConfirmMFA(context.Background(), services.ConfirmMFAInput{UserID: userID})
 
 	assert.ErrorContains(t, err, "fetching user")
 	assert.ErrorIs(t, err, dbErr)
@@ -612,7 +613,7 @@ func TestConfirmMFA_UserNotFound(t *testing.T) {
 	userID := uuid.New()
 	f.userRepo.On("GetByID", mock.Anything, userID).Return(nil, nil)
 
-	err := f.svc.ConfirmMFA(context.Background(), services.ConfirmMFAInput{UserID: userID})
+	_, err := f.svc.ConfirmMFA(context.Background(), services.ConfirmMFAInput{UserID: userID})
 
 	assert.ErrorIs(t, err, domain.ErrUserNotFound)
 }
@@ -623,7 +624,7 @@ func TestConfirmMFA_AlreadyEnabled(t *testing.T) {
 	user := &domain.User{ID: userID, MfaEnabled: true}
 	f.userRepo.On("GetByID", mock.Anything, userID).Return(user, nil)
 
-	err := f.svc.ConfirmMFA(context.Background(), services.ConfirmMFAInput{UserID: userID, Secret: "S", Code: "C"})
+	_, err := f.svc.ConfirmMFA(context.Background(), services.ConfirmMFAInput{UserID: userID, Secret: "S", Code: "C"})
 
 	assert.ErrorIs(t, err, domain.ErrMFAAlreadyEnabled)
 	f.totp.AssertNotCalled(t, "Validate")
@@ -636,7 +637,7 @@ func TestConfirmMFA_InvalidCode(t *testing.T) {
 	f.userRepo.On("GetByID", mock.Anything, userID).Return(user, nil)
 	f.totp.On("Validate", mock.Anything, "SECRET", "000000").Return(false)
 
-	err := f.svc.ConfirmMFA(context.Background(), services.ConfirmMFAInput{
+	_, err := f.svc.ConfirmMFA(context.Background(), services.ConfirmMFAInput{
 		UserID: userID, Secret: "SECRET", Code: "000000",
 	})
 
@@ -653,7 +654,7 @@ func TestConfirmMFA_UpdateError(t *testing.T) {
 	f.totp.On("Validate", mock.Anything, "SECRET", "123456").Return(true)
 	f.userRepo.On("Update", mock.Anything, mock.Anything).Return(updateErr)
 
-	err := f.svc.ConfirmMFA(context.Background(), services.ConfirmMFAInput{
+	_, err := f.svc.ConfirmMFA(context.Background(), services.ConfirmMFAInput{
 		UserID: userID, Secret: "SECRET", Code: "123456",
 	})
 

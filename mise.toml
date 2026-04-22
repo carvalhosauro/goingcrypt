@@ -11,6 +11,12 @@ run = "go build -o ./bin/goingcrypt-api ./cmd/api/main.go"
 description = "Start the API locally with hot reload via air (install once: go install github.com/air-verse/air@latest)"
 run = "air -c .air.toml"
 
+# ── Setup ─────────────────────────────────────────────────────────────────────
+
+[tasks.setup]
+description = "One-time developer setup: configure git hooks"
+run = "git config core.hooksPath .githooks && echo '✅ Git hooks configured'"
+
 # ── Quality ────────────────────────────────────────────────────────────────────
 
 [tasks.fmt]
@@ -28,6 +34,10 @@ run = "golangci-lint run ./..."
 [tasks.tidy]
 description = "Tidy go.mod and go.sum"
 run = "go mod tidy"
+
+[tasks.pre-commit]
+description = "Run all pre-commit checks manually (fmt, vet, lint, test)"
+run = "bash .githooks/pre-commit"
 
 # ── Test ───────────────────────────────────────────────────────────────────────
 

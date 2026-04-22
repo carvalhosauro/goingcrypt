@@ -1,0 +1,40 @@
+meta {
+  name: Recovery Confirm
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{base_url}}/api/v1/auth/recovery/confirm
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "gustavo",
+    "recovery_code": "XXXX-XXXX-XXXX",
+    "new_password": "newsupersecret123"
+  }
+}
+
+docs {
+  Confirms the account recovery by validating a recovery code and setting a new password.
+  On success, MFA is disabled and new tokens are issued.
+
+  **Request body**
+  | Field         | Type   | Required | Description                                   |
+  |---------------|--------|----------|-----------------------------------------------|
+  | username      | string | ✅       | The username of the account                   |
+  | recovery_code | string | ✅       | One-time recovery code provided during setup  |
+  | new_password  | string | ✅       | The new password to set (minimum 8 characters)|
+
+  **Responses**
+  | Status | Meaning                                                    |
+  |--------|------------------------------------------------------------|
+  | 200    | Recovery confirmed — tokens returned, MFA disabled         |
+  | 400    | Validation error or invalid recovery code                  |
+  | 401    | Invalid or expired recovery code                           |
+  | 404    | User not found                                             |
+  | 501    | Not yet implemented                                        |
+}
