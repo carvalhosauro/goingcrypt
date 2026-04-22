@@ -1,0 +1,7 @@
+docs/
+.omc/
+bin/
+
+.git/
+.env*
+coverage.*
