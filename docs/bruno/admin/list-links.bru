@@ -1,0 +1,46 @@
+meta {
+  name: List Links
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/api/v1/admin/links
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+params:query {
+  limit: 50
+  offset: 0
+}
+
+docs {
+  Returns a paginated list of all links in the system (admin view).
+
+  **Requires**: `Authorization: Bearer <access_token>`
+
+  **Query parameters**
+  | Param  | Type | Default | Description                  |
+  |--------|------|---------|------------------------------|
+  | limit  | int  | 50      | Maximum number of results    |
+  | offset | int  | 0       | Number of records to skip    |
+
+  **Response body**
+  | Field   | Type  | Description                        |
+  |---------|-------|------------------------------------|
+  | links   | array | List of link summaries             |
+  | total   | int   | Number of links returned           |
+  | limit   | int   | Limit used in the query            |
+  | offset  | int   | Offset used in the query           |
+
+  **Responses**
+  | Status | Meaning                      |
+  |--------|------------------------------|
+  | 200    | OK — paginated list of links |
+  | 401    | Unauthorized (not logged in) |
+}

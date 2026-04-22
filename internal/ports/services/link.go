@@ -39,3 +39,47 @@ type LinkService interface {
 	CreateLink(ctx context.Context, in CreateLinkInput) (CreateLinkOutput, error)
 	DeleteLink(ctx context.Context, in DeleteLinkInput) error
 }
+
+// ─── Admin types ────────────────────────────────────────────────────────────
+
+type AdminListLinksInput struct {
+	Limit  int
+	Offset int
+}
+
+type AdminLinkSummary struct {
+	Slug      string     `json:"slug"`
+	Status    string     `json:"status"`
+	CreatedBy *uuid.UUID `json:"created_by"`
+	ExpiresAt *time.Time `json:"expires_at"`
+	CreatedAt time.Time  `json:"created_at"`
+}
+
+type AdminListLinksOutput struct {
+	Links  []AdminLinkSummary `json:"links"`
+	Total  int                `json:"total"`
+	Limit  int                `json:"limit"`
+	Offset int                `json:"offset"`
+}
+
+type AdminGetLinkInput struct {
+	ID string
+}
+
+type AdminLinkDetail struct {
+	ID        uuid.UUID  `json:"id"`
+	Slug      string     `json:"slug"`
+	Status    string     `json:"status"`
+	CreatedBy *uuid.UUID `json:"created_by"`
+	ExpiresAt *time.Time `json:"expires_at"`
+	CreatedAt time.Time  `json:"created_at"`
+}
+
+type AdminGetLinkOutput struct {
+	Link AdminLinkDetail `json:"link"`
+}
+
+type AdminLinkService interface {
+	ListLinks(ctx context.Context, in AdminListLinksInput) (AdminListLinksOutput, error)
+	GetLink(ctx context.Context, in AdminGetLinkInput) (AdminGetLinkOutput, error)
+}

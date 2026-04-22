@@ -102,6 +102,7 @@ func main() {
 	healthHandler := adapthttp.NewHealthHandler()
 	authHandler := adapthttp.NewAuthHandler(authSvc)
 	linkHandler := adapthttp.NewLinkHandler(linkSvc)
+	adminHandler := adapthttp.NewAdminHandler(linkSvc)
 
 	// Router
 	r := chi.NewRouter()
@@ -112,6 +113,7 @@ func main() {
 	r.Route("/health", healthHandler.RegisterRoutes)
 	r.Route("/api/v1/auth", authHandler.RegisterRoutes)
 	r.Route("/api/v1/links", linkHandler.RegisterRoutes)
+	r.Route("/api/v1/admin", adminHandler.RegisterRoutes)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.port),

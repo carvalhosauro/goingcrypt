@@ -134,3 +134,59 @@ func (s *LinkService) DeleteLink(ctx context.Context, in services.DeleteLinkInpu
 
 	return nil
 }
+
+// ─── Admin ───────────────────────────────────────────────────────────────────
+
+func (s *LinkService) ListLinks(ctx context.Context, in services.AdminListLinksInput) (services.AdminListLinksOutput, error) {
+	limit := in.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+
+	var opts []repository.LinkOption
+	opts = append(opts, repository.WithPagination(limit, in.Offset))
+
+	links, err := s.linkRepo.List(ctx, opts...)
+	if err != nil {
+		return services.AdminListLinksOutput{}, fmt.Errorf("listing links: %w", err)
+	}
+
+	summaries := make([]services.AdminLinkSummary, len(links))
+	for i, l := range links {
+		summaries[i] = services.AdminLinkSummary{
+			Slug:      l.Slug,
+			Status:    string(l.Status),
+			CreatedBy: l.CreatedBy,
+			ExpiresAt: l.ExpiresAt,
+			CreatedAt: l.CreatedAt,
+		}
+	}
+
+	return services.AdminListLinksOutput{
+		Links:  summaries,
+		Total:  len(summaries),
+		Limit:  limit,
+		Offset: in.Offset,
+	}, nil
+}
+
+func (s *LinkService) GetLink(ctx context.Context, in services.AdminGetLinkInput) (services.AdminGetLinkOutput, error) {
+	link, err := s.linkRepo.GetBySlug(ctx, in.ID)
+	if err != nil {
+		return services.AdminGetLinkOutput{}, fmt.Errorf("fetching link: %w", err)
+	}
+	if link == nil {
+		return services.AdminGetLinkOutput{}, domain.ErrLinkNotFound
+	}
+
+	return services.AdminGetLinkOutput{
+		Link: services.AdminLinkDetail{
+			ID:        link.ID,
+			Slug:      link.Slug,
+			Status:    string(link.Status),
+			CreatedBy: link.CreatedBy,
+			ExpiresAt: link.ExpiresAt,
+			CreatedAt: link.CreatedAt,
+		},
+	}, nil
+}
