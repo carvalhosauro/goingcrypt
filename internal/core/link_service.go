@@ -98,6 +98,7 @@ func (s *LinkService) CreateLink(ctx context.Context, in services.CreateLinkInpu
 		CipheredText: in.CipheredText,
 		ExpiresAt:    expiresAt,
 		CreatedBy:    in.CreatedBy,
+		Status:       domain.StatusWaiting,
 	}
 
 	if err := s.linkRepo.Create(ctx, link); err != nil {
