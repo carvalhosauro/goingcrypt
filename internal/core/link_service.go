@@ -54,9 +54,9 @@ func (s *LinkService) AccessLink(ctx context.Context, in services.AccessLinkInpu
 	if err != nil {
 		return services.AccessLinkOutput{}, fmt.Errorf("generating uuid: %w", err)
 	}
-	
+
 	accessLog := &domain.LinkAccessLog{
-		ID: logId,
+		ID:        logId,
 		LinkID:    link.ID,
 		IPAddress: in.IPAddress,
 		UserAgent: in.UserAgent,
@@ -98,7 +98,7 @@ func (s *LinkService) CreateLink(ctx context.Context, in services.CreateLinkInpu
 	}
 
 	link := &domain.Link{
-		ID: id,
+		ID:           id,
 		Slug:         slug,
 		HashedKey:    hashedKeyHex,
 		CipheredText: in.CipheredText,

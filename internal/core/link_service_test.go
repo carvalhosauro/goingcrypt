@@ -35,6 +35,7 @@ func TestAccessLink_HappyPath(t *testing.T) {
 	svc := newService(repo, tx, gen)
 
 	key := "secret"
+	logID := uuid.New()
 	link := &domain.Link{
 		ID:           uuid.New(),
 		Slug:         "abc123",
@@ -44,7 +45,8 @@ func TestAccessLink_HappyPath(t *testing.T) {
 	}
 
 	repo.On("GetBySlug", mock.Anything, "abc123").Return(link, nil)
-	// Transactor executes fn directly (nil sentinel → fn(ctx))
+	gen.On("GenerateUUID", mock.Anything).Return(logID, nil)
+	// .Return(nil) → the mock executes fn(ctx) and returns its result (see mocks/transactor.go)
 	tx.On("RunInTx", mock.Anything, mock.Anything).Return(nil)
 	repo.On("Update", mock.Anything, link).Return(nil)
 	repo.On("CreateAccessLog", mock.Anything, mock.AnythingOfType("*domain.LinkAccessLog")).Return(nil)
@@ -55,6 +57,7 @@ func TestAccessLink_HappyPath(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, "encrypted-data", out.CipheredText)
+	gen.AssertExpectations(t)
 	repo.AssertExpectations(t)
 	tx.AssertExpectations(t)
 }
@@ -186,6 +189,7 @@ func TestAccessLink_TxUpdateError(t *testing.T) {
 	dbErr := errors.New("update failed")
 
 	repo.On("GetBySlug", mock.Anything, "abc").Return(link, nil)
+	gen.On("GenerateUUID", mock.Anything).Return(uuid.New(), nil)
 	tx.On("RunInTx", mock.Anything, mock.Anything).Return(nil)
 	repo.On("Update", mock.Anything, link).Return(dbErr)
 
@@ -211,6 +215,7 @@ func TestAccessLink_TxCreateAccessLogError(t *testing.T) {
 	logErr := errors.New("log failed")
 
 	repo.On("GetBySlug", mock.Anything, "abc").Return(link, nil)
+	gen.On("GenerateUUID", mock.Anything).Return(uuid.New(), nil)
 	tx.On("RunInTx", mock.Anything, mock.Anything).Return(nil)
 	repo.On("Update", mock.Anything, link).Return(nil)
 	repo.On("CreateAccessLog", mock.Anything, mock.AnythingOfType("*domain.LinkAccessLog")).Return(logErr)
