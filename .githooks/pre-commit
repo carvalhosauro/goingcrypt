@@ -2,13 +2,19 @@
 # Pre-commit hook — runs quality checks before every commit.
 # Setup: mise run setup   (or: git config core.hooksPath .githooks)
 
-set -euo pipefail
+# Silence locale warnings that pollute the git output
+export LC_ALL=C
+export LANG=C
+
+set -uo pipefail
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
+BOLD='\033[1m'
 NC='\033[0m'
+
+FAILED=()
 
 run_step() {
   local label="$1"
@@ -18,8 +24,7 @@ run_step() {
     printf "${GREEN}✓${NC}\n"
   else
     printf "${RED}✗${NC}\n"
-    echo "$output"
-    return 1
+    FAILED+=("$label|||$output")
   fi
 }
 
@@ -32,7 +37,6 @@ printf "  %-20s" "gofmt"
 changed_files=$(gofmt -l . 2>&1)
 if [ -n "$changed_files" ]; then
   gofmt -w .
-  # Re-stage only the files that were already staged
   while IFS= read -r f; do
     if git diff --cached --name-only | grep -qF "$f"; then
       git add "$f"
@@ -56,6 +60,30 @@ fi
 # 4. Tests
 run_step "go test" go test ./...
 
+# ── Summary ───────────────────────────────────────────────────────────────────
+
+if [ ${#FAILED[@]} -eq 0 ]; then
+  echo ""
+  echo "✅ All checks passed!"
+  echo ""
+  exit 0
+fi
+
 echo ""
-echo "✅ All checks passed!"
+echo "${BOLD}${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo "${BOLD}${RED} ✗ Commit blocked — ${#FAILED[@]} check(s) failed${NC}"
+echo "${BOLD}${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+for entry in "${FAILED[@]}"; do
+  label="${entry%%|||*}"
+  output="${entry##*|||}"
+  echo ""
+  echo "${BOLD}▶ $label${NC}"
+  echo "─────────────────────────────────────────────────────"
+  echo "$output"
+done
+
 echo ""
+echo "${RED}Fix the errors above, then commit again.${NC}"
+echo ""
+exit 1
