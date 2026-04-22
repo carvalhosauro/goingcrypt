@@ -77,8 +77,8 @@ func (r *linkRepository) Update(ctx context.Context, link *domain.Link) error {
 
 func (r *linkRepository) CreateAccessLog(ctx context.Context, log *domain.LinkAccessLog) error {
 	const query = `
-		INSERT INTO link_access_logs (link_id, ip_address, user_agent, opened_at)
-		VALUES (:link_id, :ip_address, :user_agent, :opened_at)
+		INSERT INTO link_access_logs (id, link_id, ip_address, user_agent, opened_at)
+		VALUES (:id, :link_id, :ip_address, :user_agent, :opened_at)
 	`
 	_, err := r.conn(ctx).NamedExecContext(ctx, query, log)
 	return err
