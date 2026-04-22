@@ -23,3 +23,15 @@ func AuthMiddleware(tm ports.TokenManager) func(http.Handler) http.Handler {
 		})
 	}
 }
+
+// RequireAuth rejects the request with 401 if no authenticated userID is
+// present in the context. Use it on sub-routers that require a valid session.
+func RequireAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := r.Context().Value(userIDKey).(interface{ String() string }); !ok {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
