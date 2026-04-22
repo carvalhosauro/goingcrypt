@@ -2,7 +2,6 @@
 # Pre-commit hook — runs quality checks before every commit.
 # Setup: mise run setup   (or: git config core.hooksPath .githooks)
 
-# Silence locale warnings that pollute the git output
 export LC_ALL=C
 export LANG=C
 
@@ -15,6 +14,10 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 FAILED=()
+TMPDIR_HOOK=$(mktemp -d)
+trap 'rm -rf "$TMPDIR_HOOK"' EXIT
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 run_step() {
   local label="$1"
@@ -28,37 +31,56 @@ run_step() {
   fi
 }
 
+# Returns only .go files that are staged (added or modified)
+staged_go_files() {
+  git diff --cached --name-only --diff-filter=ACM | grep '\.go$'
+}
+
+# ── Start ─────────────────────────────────────────────────────────────────────
+
 echo ""
 echo "🔒 Running pre-commit checks..."
 echo ""
 
-# 1. Format — auto-format and re-stage the changed files
+# 1. gofmt — only staged files
 printf "  %-20s" "gofmt"
-changed_files=$(gofmt -l . 2>&1)
-if [ -n "$changed_files" ]; then
-  gofmt -w .
-  while IFS= read -r f; do
-    if git diff --cached --name-only | grep -qF "$f"; then
-      git add "$f"
-    fi
-  done <<< "$changed_files"
-  printf "${YELLOW}auto-fixed${NC} $(echo "$changed_files" | wc -l | tr -d ' ') file(s)\n"
+
+mapfile -t files < <(staged_go_files)
+
+if [ ${#files[@]} -eq 0 ]; then
+  printf "${GREEN}✓${NC} (no Go files staged)\n"
 else
-  printf "${GREEN}✓${NC}\n"
+  needs_fmt=()
+  for f in "${files[@]}"; do
+    [[ -f "$f" ]] || continue
+    if ! gofmt -l "$f" | grep -q .; then
+      : # already formatted
+    else
+      needs_fmt+=("$f")
+    fi
+  done
+
+  if [ ${#needs_fmt[@]} -gt 0 ]; then
+    gofmt -w "${needs_fmt[@]}"
+    git add "${needs_fmt[@]}"
+    printf "${YELLOW}auto-fixed${NC} ${#needs_fmt[@]} file(s)\n"
+  else
+    printf "${GREEN}✓${NC}\n"
+  fi
 fi
 
-# 2. Vet
+# 2. go vet
 run_step "go vet" go vet ./...
 
-# 3. Lint (requires golangci-lint)
+# 3. golangci-lint
 if command -v golangci-lint &>/dev/null; then
   run_step "golangci-lint" golangci-lint run ./...
 else
   printf "  %-20s${YELLOW}skipped (not installed)${NC}\n" "golangci-lint"
 fi
 
-# 4. Tests
-run_step "go test" go test ./...
+# 4. Tests — com race detector e timeout
+run_step "go test" go test -race -timeout 60s ./...
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 
