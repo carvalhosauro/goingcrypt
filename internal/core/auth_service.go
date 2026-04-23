@@ -83,13 +83,14 @@ func (s *AuthService) SignUp(ctx context.Context, in services.SignUpInput) (serv
 		ID:       id,
 		Username: in.Username,
 		Password: hashedPassword,
+		Role:     domain.UserRoleUser,
 	}
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		return services.SignUpOutput{}, fmt.Errorf("creating user: %w", err)
 	}
 
-	accessToken, rawRefresh, err := s.issueTokenPair(ctx, user.ID, in.DeviceName, in.IPAddress, in.UserAgent)
+	accessToken, rawRefresh, err := s.issueTokenPair(ctx, user.ID, user.Role, in.DeviceName, in.IPAddress, in.UserAgent)
 	if err != nil {
 		return services.SignUpOutput{}, err
 	}
@@ -122,7 +123,7 @@ func (s *AuthService) Login(ctx context.Context, in services.LoginInput) (servic
 		return services.LoginOutput{MFARequired: true, UserID: user.ID}, nil
 	}
 
-	accessToken, rawRefresh, err := s.issueTokenPair(ctx, user.ID, in.DeviceName, in.IPAddress, in.UserAgent)
+	accessToken, rawRefresh, err := s.issueTokenPair(ctx, user.ID, user.Role, in.DeviceName, in.IPAddress, in.UserAgent)
 	if err != nil {
 		return services.LoginOutput{}, err
 	}
@@ -160,7 +161,7 @@ func (s *AuthService) LoginWithMFA(ctx context.Context, in services.LoginWithMFA
 		return services.LoginWithMFAOutput{}, domain.ErrInvalidMFACode
 	}
 
-	accessToken, rawRefresh, err := s.issueTokenPair(ctx, user.ID, in.DeviceName, in.IPAddress, in.UserAgent)
+	accessToken, rawRefresh, err := s.issueTokenPair(ctx, user.ID, user.Role, in.DeviceName, in.IPAddress, in.UserAgent)
 	if err != nil {
 		return services.LoginWithMFAOutput{}, err
 	}
@@ -183,6 +184,14 @@ func (s *AuthService) RefreshTokens(ctx context.Context, in services.RefreshToke
 		return services.RefreshTokensOutput{}, domain.ErrInvalidRefreshToken
 	}
 
+	user, err := s.userRepo.GetByID(ctx, stored.UserID)
+	if err != nil {
+		return services.RefreshTokensOutput{}, fmt.Errorf("fetching user: %w", err)
+	}
+	if user == nil {
+		return services.RefreshTokensOutput{}, domain.ErrUserNotFound
+	}
+
 	var accessToken, rawRefresh string
 	if err := s.transactor.RunInTx(ctx, func(txCtx context.Context) error {
 		newID, err := s.generator.GenerateUUID(txCtx)
@@ -191,7 +200,7 @@ func (s *AuthService) RefreshTokens(ctx context.Context, in services.RefreshToke
 		}
 
 		var newRawRefresh string
-		accessToken, newRawRefresh, err = s.issueTokenPairInTx(txCtx, stored.UserID, in.DeviceName, in.IPAddress, in.UserAgent)
+		accessToken, newRawRefresh, err = s.issueTokenPairInTx(txCtx, stored.UserID, user.Role, in.DeviceName, in.IPAddress, in.UserAgent)
 		if err != nil {
 			return err
 		}
@@ -346,7 +355,7 @@ func (s *AuthService) RecoveryConfirm(ctx context.Context, in services.RecoveryC
 		if err := s.userRepo.Update(txCtx, user); err != nil {
 			return fmt.Errorf("updating user: %w", err)
 		}
-		at, rt, err := s.issueTokenPairInTx(txCtx, user.ID, in.DeviceName, in.IPAddress, in.UserAgent)
+		at, rt, err := s.issueTokenPairInTx(txCtx, user.ID, user.Role, in.DeviceName, in.IPAddress, in.UserAgent)
 		if err != nil {
 			return err
 		}
@@ -362,12 +371,12 @@ func (s *AuthService) RecoveryConfirm(ctx context.Context, in services.RecoveryC
 	}, nil
 }
 
-func (s *AuthService) issueTokenPair(ctx context.Context, userID uuid.UUID, deviceName, ipAddress, userAgent string) (string, string, error) {
-	return s.issueTokenPairInTx(ctx, userID, deviceName, ipAddress, userAgent)
+func (s *AuthService) issueTokenPair(ctx context.Context, userID uuid.UUID, role domain.UserRole, deviceName, ipAddress, userAgent string) (string, string, error) {
+	return s.issueTokenPairInTx(ctx, userID, role, deviceName, ipAddress, userAgent)
 }
 
-func (s *AuthService) issueTokenPairInTx(ctx context.Context, userID uuid.UUID, deviceName, ipAddress, userAgent string) (string, string, error) {
-	accessToken, err := s.tokenManager.GenerateAccessToken(ctx, userID)
+func (s *AuthService) issueTokenPairInTx(ctx context.Context, userID uuid.UUID, role domain.UserRole, deviceName, ipAddress, userAgent string) (string, string, error) {
+	accessToken, err := s.tokenManager.GenerateAccessToken(ctx, userID, role)
 	if err != nil {
 		return "", "", fmt.Errorf("generating access token: %w", err)
 	}

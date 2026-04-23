@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/carvalhosauro/goingcrypt/internal/domain"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
@@ -13,6 +14,7 @@ const accessTokenTTL = 15 * time.Minute
 
 type jwtClaims struct {
 	jwt.RegisteredClaims
+	Role domain.UserRole `json:"role"`
 }
 
 type JWTTokenManager struct {
@@ -24,7 +26,7 @@ func NewJWTTokenManager(secret []byte, issuer string) *JWTTokenManager {
 	return &JWTTokenManager{secret: secret, issuer: issuer}
 }
 
-func (m *JWTTokenManager) GenerateAccessToken(_ context.Context, userID uuid.UUID) (string, error) {
+func (m *JWTTokenManager) GenerateAccessToken(_ context.Context, userID uuid.UUID, role domain.UserRole) (string, error) {
 	now := time.Now()
 	claims := jwtClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -33,6 +35,7 @@ func (m *JWTTokenManager) GenerateAccessToken(_ context.Context, userID uuid.UUI
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(accessTokenTTL)),
 		},
+		Role: role,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -44,7 +47,7 @@ func (m *JWTTokenManager) GenerateAccessToken(_ context.Context, userID uuid.UUI
 	return signed, nil
 }
 
-func (m *JWTTokenManager) ValidateAccessToken(_ context.Context, tokenStr string) (uuid.UUID, error) {
+func (m *JWTTokenManager) ValidateAccessToken(_ context.Context, tokenStr string) (uuid.UUID, domain.UserRole, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &jwtClaims{}, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
@@ -53,18 +56,18 @@ func (m *JWTTokenManager) ValidateAccessToken(_ context.Context, tokenStr string
 	}, jwt.WithIssuer(m.issuer), jwt.WithExpirationRequired())
 
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("parsing token: %w", err)
+		return uuid.Nil, "", fmt.Errorf("parsing token: %w", err)
 	}
 
 	claims, ok := token.Claims.(*jwtClaims)
 	if !ok || !token.Valid {
-		return uuid.Nil, fmt.Errorf("invalid token claims")
+		return uuid.Nil, "", fmt.Errorf("invalid token claims")
 	}
 
 	userID, err := uuid.Parse(claims.Subject)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("parsing user id from token: %w", err)
+		return uuid.Nil, "", fmt.Errorf("parsing user id from token: %w", err)
 	}
 
-	return userID, nil
+	return userID, claims.Role, nil
 }
