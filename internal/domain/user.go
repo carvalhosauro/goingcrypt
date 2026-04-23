@@ -8,10 +8,18 @@ import (
 	"github.com/lib/pq"
 )
 
+type UserRole string
+
+const (
+	UserRoleUser  UserRole = "user"
+	UserRoleAdmin UserRole = "admin"
+)
+
 type User struct {
 	ID            uuid.UUID      `db:"id"`
 	Username      string         `db:"username"`
 	Password      string         `db:"password"`
+	Role          UserRole       `db:"role"`
 	MfaEnabled    bool           `db:"mfa_enabled"`
 	MfaSecret     sql.NullString `db:"mfa_secret"`
 	RecoveryCodes pq.StringArray `db:"recovery_codes"`
