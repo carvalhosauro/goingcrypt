@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/carvalhosauro/goingcrypt/internal/domain"
@@ -15,13 +16,12 @@ import (
 )
 
 type LinkService struct {
-	linkRepo   repository.LinkRepository
-	transactor repository.Transactor
-	generator  ports.Generator
+	linkRepo  repository.LinkRepository
+	generator ports.Generator
 }
 
-func NewLinkService(linkRepo repository.LinkRepository, transactor repository.Transactor, generator ports.Generator) *LinkService {
-	return &LinkService{linkRepo: linkRepo, transactor: transactor, generator: generator}
+func NewLinkService(linkRepo repository.LinkRepository, generator ports.Generator) *LinkService {
+	return &LinkService{linkRepo: linkRepo, generator: generator}
 }
 
 func (s *LinkService) AccessLink(ctx context.Context, in services.AccessLinkInput) (services.AccessLinkOutput, error) {
@@ -50,30 +50,33 @@ func (s *LinkService) AccessLink(ctx context.Context, in services.AccessLinkInpu
 		return services.AccessLinkOutput{}, fmt.Errorf("opening link: %w", err)
 	}
 
-	logId, err := s.generator.GenerateUUID(ctx)
-	if err != nil {
-		return services.AccessLinkOutput{}, fmt.Errorf("generating uuid: %w", err)
+	if err := s.linkRepo.Update(ctx, link); err != nil {
+		return services.AccessLinkOutput{}, fmt.Errorf("updating link status: %w", err)
 	}
 
-	accessLog := &domain.LinkAccessLog{
-		ID:        logId,
-		LinkID:    link.ID,
-		IPAddress: in.IPAddress,
-		UserAgent: in.UserAgent,
-		OpenedAt:  time.Now(),
-	}
+	linkID := link.ID
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 
-	if err := s.transactor.RunInTx(ctx, func(txCtx context.Context) error {
-		if err := s.linkRepo.Update(txCtx, link); err != nil {
-			return fmt.Errorf("updating link status: %w", err)
+		logID, err := s.generator.GenerateUUID(bgCtx)
+		if err != nil {
+			slog.Error("failed to generate access log id", "err", err, "link_id", linkID)
+			return
 		}
-		if err := s.linkRepo.CreateAccessLog(txCtx, accessLog); err != nil {
-			return fmt.Errorf("creating access log: %w", err)
+
+		accessLog := &domain.LinkAccessLog{
+			ID:        logID,
+			LinkID:    linkID,
+			IPAddress: in.IPAddress,
+			UserAgent: in.UserAgent,
+			OpenedAt:  time.Now(),
 		}
-		return nil
-	}); err != nil {
-		return services.AccessLinkOutput{}, err
-	}
+
+		if err := s.linkRepo.CreateAccessLog(bgCtx, accessLog); err != nil {
+			slog.Error("failed to create access log", "err", err, "link_id", linkID)
+		}
+	}()
 
 	return services.AccessLinkOutput{CipheredText: cipheredText}, nil
 }

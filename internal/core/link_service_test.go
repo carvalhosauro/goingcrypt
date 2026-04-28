@@ -22,17 +22,16 @@ func hashKey(key string) string {
 	return hex.EncodeToString(h[:])
 }
 
-func newService(repo *mocks.LinkRepository, tx *mocks.Transactor, gen *mocks.Generator) *core.LinkService {
-	return core.NewLinkService(repo, tx, gen)
+func newService(repo *mocks.LinkRepository, gen *mocks.Generator) *core.LinkService {
+	return core.NewLinkService(repo, gen)
 }
 
 // ─── AccessLink ──────────────────────────────────────────────────────────────
 
 func TestAccessLink_HappyPath(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	key := "secret"
 	logID := uuid.New()
@@ -45,11 +44,10 @@ func TestAccessLink_HappyPath(t *testing.T) {
 	}
 
 	repo.On("GetBySlug", mock.Anything, "abc123").Return(link, nil)
-	gen.On("GenerateUUID", mock.Anything).Return(logID, nil)
-	// .Return(nil) → the mock executes fn(ctx) and returns its result (see mocks/transactor.go)
-	tx.On("RunInTx", mock.Anything, mock.Anything).Return(nil)
 	repo.On("Update", mock.Anything, link).Return(nil)
-	repo.On("CreateAccessLog", mock.Anything, mock.AnythingOfType("*domain.LinkAccessLog")).Return(nil)
+	// GenerateUUID and CreateAccessLog are called in background goroutine.
+	gen.On("GenerateUUID", mock.Anything).Return(logID, nil).Maybe()
+	repo.On("CreateAccessLog", mock.Anything, mock.AnythingOfType("*domain.LinkAccessLog")).Return(nil).Maybe()
 
 	out, err := svc.AccessLink(context.Background(), services.AccessLinkInput{
 		Slug: "abc123", Key: key,
@@ -57,16 +55,15 @@ func TestAccessLink_HappyPath(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, "encrypted-data", out.CipheredText)
-	gen.AssertExpectations(t)
+	// Give the background goroutine a moment to flush.
+	time.Sleep(50 * time.Millisecond)
 	repo.AssertExpectations(t)
-	tx.AssertExpectations(t)
 }
 
 func TestAccessLink_SlugNotFound(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	repo.On("GetBySlug", mock.Anything, "missing").Return(nil, nil)
 
@@ -78,9 +75,8 @@ func TestAccessLink_SlugNotFound(t *testing.T) {
 
 func TestAccessLink_GetBySlugError(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	dbErr := errors.New("connection refused")
 	repo.On("GetBySlug", mock.Anything, "abc").Return(nil, dbErr)
@@ -93,9 +89,8 @@ func TestAccessLink_GetBySlugError(t *testing.T) {
 
 func TestAccessLink_LinkAlreadyOpened(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	link := &domain.Link{
 		Slug:      "abc",
@@ -113,9 +108,8 @@ func TestAccessLink_LinkAlreadyOpened(t *testing.T) {
 
 func TestAccessLink_LinkWaitingButExpired_InvalidatesAndUpdates(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	past := time.Now().Add(-1 * time.Hour)
 	link := &domain.Link{
@@ -136,9 +130,8 @@ func TestAccessLink_LinkWaitingButExpired_InvalidatesAndUpdates(t *testing.T) {
 
 func TestAccessLink_LinkStatusExpiredNoExpiresAt_SkipsInvalidate(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	link := &domain.Link{
 		Slug:      "abc",
@@ -156,9 +149,8 @@ func TestAccessLink_LinkStatusExpiredNoExpiresAt_SkipsInvalidate(t *testing.T) {
 
 func TestAccessLink_WrongKey(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	link := &domain.Link{
 		Slug:      "abc",
@@ -173,11 +165,10 @@ func TestAccessLink_WrongKey(t *testing.T) {
 	repo.AssertNotCalled(t, "Update")
 }
 
-func TestAccessLink_TxUpdateError(t *testing.T) {
+func TestAccessLink_UpdateError(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	key := "secret"
 	link := &domain.Link{
@@ -189,8 +180,6 @@ func TestAccessLink_TxUpdateError(t *testing.T) {
 	dbErr := errors.New("update failed")
 
 	repo.On("GetBySlug", mock.Anything, "abc").Return(link, nil)
-	gen.On("GenerateUUID", mock.Anything).Return(uuid.New(), nil)
-	tx.On("RunInTx", mock.Anything, mock.Anything).Return(nil)
 	repo.On("Update", mock.Anything, link).Return(dbErr)
 
 	_, err := svc.AccessLink(context.Background(), services.AccessLinkInput{Slug: "abc", Key: key})
@@ -199,40 +188,12 @@ func TestAccessLink_TxUpdateError(t *testing.T) {
 	assert.ErrorIs(t, err, dbErr)
 }
 
-func TestAccessLink_TxCreateAccessLogError(t *testing.T) {
-	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
-	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
-
-	key := "secret"
-	link := &domain.Link{
-		Slug:         "abc",
-		HashedKey:    hashKey(key),
-		CipheredText: "data",
-		Status:       domain.StatusWaiting,
-	}
-	logErr := errors.New("log failed")
-
-	repo.On("GetBySlug", mock.Anything, "abc").Return(link, nil)
-	gen.On("GenerateUUID", mock.Anything).Return(uuid.New(), nil)
-	tx.On("RunInTx", mock.Anything, mock.Anything).Return(nil)
-	repo.On("Update", mock.Anything, link).Return(nil)
-	repo.On("CreateAccessLog", mock.Anything, mock.AnythingOfType("*domain.LinkAccessLog")).Return(logErr)
-
-	_, err := svc.AccessLink(context.Background(), services.AccessLinkInput{Slug: "abc", Key: key})
-
-	assert.ErrorContains(t, err, "creating access log")
-	assert.ErrorIs(t, err, logErr)
-}
-
 // ─── CreateLink ──────────────────────────────────────────────────────────────
 
 func TestCreateLink_HappyPath(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	id := uuid.New()
 	gen.On("GenerateUUID", mock.Anything).Return(id, nil)
@@ -256,9 +217,8 @@ func TestCreateLink_HappyPath(t *testing.T) {
 
 func TestCreateLink_WithExpiresIn(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	id := uuid.New()
 	duration := 24 * time.Hour
@@ -285,9 +245,8 @@ func TestCreateLink_WithExpiresIn(t *testing.T) {
 
 func TestCreateLink_KeyIsHashed(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	id := uuid.New()
 	gen.On("GenerateUUID", mock.Anything).Return(id, nil)
@@ -306,9 +265,8 @@ func TestCreateLink_KeyIsHashed(t *testing.T) {
 
 func TestCreateLink_GenerateUUIDError(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	genErr := errors.New("uuid gen failed")
 	gen.On("GenerateUUID", mock.Anything).Return(uuid.UUID{}, genErr)
@@ -322,9 +280,8 @@ func TestCreateLink_GenerateUUIDError(t *testing.T) {
 
 func TestCreateLink_GenerateSlugError(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	id := uuid.New()
 	slugErr := errors.New("slug gen failed")
@@ -340,9 +297,8 @@ func TestCreateLink_GenerateSlugError(t *testing.T) {
 
 func TestCreateLink_RepositoryCreateError(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	id := uuid.New()
 	createErr := errors.New("db error")
@@ -360,9 +316,8 @@ func TestCreateLink_RepositoryCreateError(t *testing.T) {
 
 func TestDeleteLink_HappyPath(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	userID := uuid.New()
 	link := &domain.Link{Slug: "abc", CreatedBy: &userID}
@@ -378,9 +333,8 @@ func TestDeleteLink_HappyPath(t *testing.T) {
 
 func TestDeleteLink_LinkNotFound(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	repo.On("GetBySlug", mock.Anything, "missing").Return(nil, nil)
 
@@ -392,9 +346,8 @@ func TestDeleteLink_LinkNotFound(t *testing.T) {
 
 func TestDeleteLink_GetBySlugError(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	dbErr := errors.New("db down")
 	repo.On("GetBySlug", mock.Anything, "abc").Return(nil, dbErr)
@@ -407,9 +360,8 @@ func TestDeleteLink_GetBySlugError(t *testing.T) {
 
 func TestDeleteLink_DifferentOwner(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	owner := uuid.New()
 	caller := uuid.New()
@@ -425,9 +377,8 @@ func TestDeleteLink_DifferentOwner(t *testing.T) {
 
 func TestDeleteLink_NilCreatedBy_AnyUserCanDelete(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	link := &domain.Link{Slug: "abc", CreatedBy: nil}
 
@@ -442,9 +393,8 @@ func TestDeleteLink_NilCreatedBy_AnyUserCanDelete(t *testing.T) {
 
 func TestDeleteLink_RepositoryDeleteError(t *testing.T) {
 	repo := &mocks.LinkRepository{}
-	tx := &mocks.Transactor{}
 	gen := &mocks.Generator{}
-	svc := newService(repo, tx, gen)
+	svc := newService(repo, gen)
 
 	userID := uuid.New()
 	link := &domain.Link{Slug: "abc", CreatedBy: &userID}

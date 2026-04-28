@@ -1,12 +1,14 @@
 package http
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"net"
 	"net/http"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -23,6 +25,12 @@ var validate = func() *validator.Validate {
 	})
 	return v
 }()
+
+var bufPool = sync.Pool{
+	New: func() any {
+		return new(bytes.Buffer)
+	},
+}
 
 type errorResponse struct {
 	Error string `json:"error"`
@@ -53,9 +61,18 @@ func validateStruct(v any) map[string]string {
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+
+	if err := json.NewEncoder(buf).Encode(v); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+	_, _ = w.Write(buf.Bytes())
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {

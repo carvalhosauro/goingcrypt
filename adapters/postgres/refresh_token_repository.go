@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/carvalhosauro/goingcrypt/internal/domain"
 	"github.com/carvalhosauro/goingcrypt/internal/ports/repository"
@@ -71,4 +72,17 @@ func (r *refreshTokenRepository) RevokeAllForUser(ctx context.Context, userID uu
 	`
 	_, err := r.conn(ctx).ExecContext(ctx, query, userID)
 	return err
+}
+
+func (r *refreshTokenRepository) DeleteExpiredAndRevoked(ctx context.Context, olderThan time.Time) (int64, error) {
+	const query = `
+		DELETE FROM refresh_tokens
+		WHERE (revoked_at IS NOT NULL OR expires_at < NOW())
+		AND issued_at < $1
+	`
+	result, err := r.conn(ctx).ExecContext(ctx, query, olderThan)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
