@@ -121,6 +121,14 @@ func main() {
 	r.Route("/api/v1/links", linkHandler.RegisterRoutes)
 	r.Route("/api/v1/admin", adminHandler.RegisterRoutes)
 
+	webDir := env.GetString("WEB_DIR", "web")
+	staticFS := http.FileServer(http.Dir(webDir))
+	r.Handle("/assets/*", staticFS)
+	r.Handle("/static/*", http.StripPrefix("/static/", staticFS))
+	r.Get("/*", func(w http.ResponseWriter, req *http.Request) {
+		http.ServeFile(w, req, webDir+"/index.html")
+	})
+
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.port),
 		Handler:      r,

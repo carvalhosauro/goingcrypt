@@ -25,7 +25,33 @@ func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 	r.Use(RequireAdmin)
 	r.Get("/links", h.ListLinks)
 	r.Get("/links/{id}", h.GetLink)
+	r.Get("/users", h.ListUsers)
+	r.Get("/access-logs", h.ListAccessLogs)
 	r.Post("/users/{id}/grant-admin", h.GrantAdmin)
+}
+
+func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
+	out, err := h.userSvc.ListUsers(r.Context(), services.AdminListUsersInput{
+		Limit:  queryInt(r, "limit", 50),
+		Offset: queryInt(r, "offset", 0),
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list users")
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (h *AdminHandler) ListAccessLogs(w http.ResponseWriter, r *http.Request) {
+	out, err := h.linkSvc.ListAccessLogs(r.Context(), services.AdminListAccessLogsInput{
+		Limit:  queryInt(r, "limit", 100),
+		Offset: queryInt(r, "offset", 0),
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list access logs")
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (h *AdminHandler) ListLinks(w http.ResponseWriter, r *http.Request) {

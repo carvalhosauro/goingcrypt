@@ -78,3 +78,17 @@ func (r *userRepository) Update(ctx context.Context, user *domain.User) error {
 	_, err := r.conn(ctx).NamedExecContext(ctx, query, user)
 	return err
 }
+
+func (r *userRepository) List(ctx context.Context, limit, offset int) ([]domain.User, error) {
+	const query = `
+		SELECT id, username, password, role, created_at, deleted_at
+		FROM users
+		ORDER BY created_at DESC
+		LIMIT $1 OFFSET $2
+	`
+	var users []domain.User
+	if err := r.conn(ctx).SelectContext(ctx, &users, query, limit, offset); err != nil {
+		return nil, err
+	}
+	return users, nil
+}

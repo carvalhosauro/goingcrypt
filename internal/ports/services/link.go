@@ -34,10 +34,28 @@ type DeleteLinkInput struct {
 	UserID uuid.UUID
 }
 
+type ListMyLinksInput struct {
+	UserID uuid.UUID
+	Limit  int
+	Offset int
+}
+
+type MyLinkSummary struct {
+	Slug      string     `json:"slug"`
+	Status    string     `json:"status"`
+	ExpiresAt *time.Time `json:"expires_at"`
+	CreatedAt time.Time  `json:"created_at"`
+}
+
+type ListMyLinksOutput struct {
+	Links []MyLinkSummary `json:"links"`
+}
+
 type LinkService interface {
 	AccessLink(ctx context.Context, in AccessLinkInput) (AccessLinkOutput, error)
 	CreateLink(ctx context.Context, in CreateLinkInput) (CreateLinkOutput, error)
 	DeleteLink(ctx context.Context, in DeleteLinkInput) error
+	ListMyLinks(ctx context.Context, in ListMyLinksInput) (ListMyLinksOutput, error)
 }
 
 // ─── Admin types ────────────────────────────────────────────────────────────
@@ -79,7 +97,26 @@ type AdminGetLinkOutput struct {
 	Link AdminLinkDetail `json:"link"`
 }
 
+type AdminListAccessLogsInput struct {
+	Limit  int
+	Offset int
+}
+
+type AdminAccessLogEntry struct {
+	ID        string    `json:"id"`
+	Slug      string    `json:"slug"`
+	IPAddress string    `json:"ip_address"`
+	UserAgent string    `json:"user_agent"`
+	OpenedAt  time.Time `json:"opened_at"`
+}
+
+type AdminListAccessLogsOutput struct {
+	Logs  []AdminAccessLogEntry `json:"logs"`
+	Total int                   `json:"total"`
+}
+
 type AdminLinkService interface {
 	ListLinks(ctx context.Context, in AdminListLinksInput) (AdminListLinksOutput, error)
 	GetLink(ctx context.Context, in AdminGetLinkInput) (AdminGetLinkOutput, error)
+	ListAccessLogs(ctx context.Context, in AdminListAccessLogsInput) (AdminListAccessLogsOutput, error)
 }

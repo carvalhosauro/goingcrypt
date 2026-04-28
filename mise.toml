@@ -8,8 +8,30 @@ description = "Compile the API binary to ./bin/goingcrypt-api"
 run = "go build -o ./bin/goingcrypt-api ./cmd/api/main.go"
 
 [tasks.dev]
-description = "Start the API locally with hot reload via air (install once: go install github.com/air-verse/air@latest)"
+description = "Start backend (air) + frontend (vite) in parallel"
+depends = ["dev:api", "dev:frontend"]
+
+[tasks."dev:api"]
+description = "Start the Go API with hot reload via air"
 run = "air -c .air.toml"
+
+[tasks."dev:frontend"]
+description = "Start the Vite dev server for the React frontend"
+run = "cd frontend && npm run dev"
+
+# ── Frontend ──────────────────────────────────────────────────────────────────
+
+[tasks."frontend:build"]
+description = "Build the React frontend for production (output → web/)"
+run = "cd frontend && npm run build"
+
+[tasks."frontend:typecheck"]
+description = "Run TypeScript type checking on the frontend"
+run = "cd frontend && npx tsc --noEmit"
+
+[tasks."frontend:install"]
+description = "Install frontend dependencies"
+run = "cd frontend && npm ci"
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
@@ -70,11 +92,12 @@ run = "migrate create -seq -ext sql -dir ./cmd/migrate/migrations"
 # ── Docker ─────────────────────────────────────────────────────────────────────
 
 # Dev workflow:
-#   1. mise run docker-db   ← starts only postgres
-#   2. mise run dev          ← starts API locally w/ hot reload
+#   1. mise run docker-db        ← starts only postgres
+#   2. mise run dev              ← starts API (air) + frontend (vite) in parallel
 #
 # Production workflow:
-#   mise run docker-up-prod  ← full stack in Docker (no override)
+#   1. mise run docker-build     ← builds images (includes frontend)
+#   2. mise run docker-up-prod   ← full stack in Docker (no override)
 
 [tasks.docker-db]
 description = "Start only the Postgres container (for local dev)"

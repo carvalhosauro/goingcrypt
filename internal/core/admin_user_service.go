@@ -31,3 +31,31 @@ func (s *AdminUserService) GrantAdmin(ctx context.Context, in services.GrantAdmi
 	}
 	return nil
 }
+
+func (s *AdminUserService) ListUsers(ctx context.Context, in services.AdminListUsersInput) (services.AdminListUsersOutput, error) {
+	limit := in.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+
+	users, err := s.userRepo.List(ctx, limit, in.Offset)
+	if err != nil {
+		return services.AdminListUsersOutput{}, fmt.Errorf("listing users: %w", err)
+	}
+
+	summaries := make([]services.UserSummary, len(users))
+	for i, u := range users {
+		summaries[i] = services.UserSummary{
+			ID:        u.ID.String(),
+			Username:  u.Username,
+			Role:      string(u.Role),
+			CreatedAt: u.CreatedAt,
+			Banned:    u.DeletedAt != nil,
+		}
+	}
+
+	return services.AdminListUsersOutput{
+		Users: summaries,
+		Total: len(summaries),
+	}, nil
+}

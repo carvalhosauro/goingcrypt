@@ -1,0 +1,192 @@
+.page {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  position: relative;
+  overflow: hidden;
+  min-height: 100vh;
+}
+
+.glow1 {
+  position: absolute;
+  width: 700px;
+  height: 700px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(79, 110, 247, 0.07) 0%, transparent 70%);
+  top: -150px;
+  right: -150px;
+  pointer-events: none;
+}
+
+.glow2 {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.06) 0%, transparent 70%);
+  bottom: -100px;
+  left: -100px;
+  pointer-events: none;
+}
+
+.container {
+  width: 100%;
+  max-width: 400px;
+  position: relative;
+}
+
+.brand {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.brandName {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  color: white;
+  margin-top: 12px;
+  letter-spacing: -0.4px;
+}
+
+.brandSub {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 3px;
+}
+
+.animated {
+  animation: fadeUp 0.3s ease;
+}
+
+/* Tab switcher */
+.tabSwitcher {
+  display: flex;
+  background: var(--surface2);
+  border-radius: 9px;
+  padding: 3px;
+  margin-bottom: 22px;
+}
+
+.tabBtn {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.tabBtn.active {
+  background: linear-gradient(135deg, #4f6ef7, #8b5cf6);
+  color: white;
+}
+
+.tabBtn:not(.active) {
+  background: transparent;
+  color: var(--text-faint);
+}
+
+/* Form */
+.fieldGroup {
+  margin-bottom: 13px;
+}
+
+.fieldGroupLast {
+  margin-bottom: 22px;
+}
+
+.fieldLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 7px;
+}
+
+.inputWrap {
+  position: relative;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #475569;
+}
+
+.input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 14px 11px 40px;
+  font-size: 13.5px;
+  color: white;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+}
+
+.input:focus {
+  border-color: #4f6ef7;
+}
+
+.inputPassword {
+  padding-right: 40px;
+}
+
+.togglePass {
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #475569;
+}
+
+.passHint {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 5px;
+}
+
+.submitBtn {
+  width: 100%;
+  padding: 13px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, #4f6ef7, #8b5cf6);
+  color: white;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  transition: opacity 0.2s;
+}
+
+.submitBtn:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.terms {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.termsLink {
+  color: #4f6ef7;
+  cursor: pointer;
+}
