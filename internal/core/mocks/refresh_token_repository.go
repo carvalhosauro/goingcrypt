@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"context"
+	"time"
 
 	"github.com/carvalhosauro/goingcrypt/internal/domain"
 	"github.com/google/uuid"
@@ -30,4 +31,9 @@ func (m *RefreshTokenRepository) Update(ctx context.Context, token *domain.Refre
 
 func (m *RefreshTokenRepository) RevokeAllForUser(ctx context.Context, userID uuid.UUID) error {
 	return m.Called(ctx, userID).Error(0)
+}
+
+func (m *RefreshTokenRepository) DeleteExpiredAndRevoked(ctx context.Context, olderThan time.Time) (int64, error) {
+	args := m.Called(ctx, olderThan)
+	return args.Get(0).(int64), args.Error(1)
 }
