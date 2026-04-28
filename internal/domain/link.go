@@ -72,3 +72,12 @@ type LinkAccessLog struct {
 	UserAgent string    `db:"user_agent"`
 	OpenedAt  time.Time `db:"opened_at"`
 }
+
+type LinkAccessEntry struct {
+	ID        uuid.UUID `db:"id"`
+	LinkID    uuid.UUID `db:"link_id"`
+	Slug      string    `db:"slug"`
+	IPAddress string    `db:"ip_address"`
+	UserAgent string    `db:"user_agent"`
+	OpenedAt  time.Time `db:"opened_at"`
+}
