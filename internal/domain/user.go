@@ -1,11 +1,9 @@
 package domain
 
 import (
-	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 )
 
 type UserRole string
@@ -16,15 +14,12 @@ const (
 )
 
 type User struct {
-	ID            uuid.UUID      `db:"id"`
-	Username      string         `db:"username"`
-	Password      string         `db:"password"`
-	Role          UserRole       `db:"role"`
-	MfaEnabled    bool           `db:"mfa_enabled"`
-	MfaSecret     sql.NullString `db:"mfa_secret"`
-	RecoveryCodes pq.StringArray `db:"recovery_codes"`
-	CreatedAt     time.Time      `db:"created_at"`
-	DeletedAt     *time.Time     `db:"deleted_at"`
+	ID        uuid.UUID  `db:"id"`
+	Username  string     `db:"username"`
+	Password  string     `db:"password"`
+	Role      UserRole   `db:"role"`
+	CreatedAt time.Time  `db:"created_at"`
+	DeletedAt *time.Time `db:"deleted_at"`
 }
 
 func (u *User) IsDeleted() bool {
