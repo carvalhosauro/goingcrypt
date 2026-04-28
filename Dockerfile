@@ -1,3 +1,15 @@
+# ── Frontend build ──────────────────────────────────────────────────────
+FROM node:22-alpine AS frontend-builder
+
+WORKDIR /app/frontend
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --ignore-scripts
+
+COPY frontend/ .
+RUN npm run build
+
+# ── Go dependency cache ────────────────────────────────────────────────
 FROM golang:1.25-alpine AS deps
 
 WORKDIR /app
@@ -58,8 +70,12 @@ COPY --from=builder /out/migrate /usr/local/bin/migrate
 # Copy migration files; the migrate binary resolves them at runtime via
 COPY --from=builder /app/cmd/migrate/migrations /migrations
 
+# Copy frontend build output
+COPY --from=frontend-builder /app/web /web
+
 USER 65534:65534
 
+ENV WEB_DIR=/web
 EXPOSE 8080
 
 ENTRYPOINT ["/usr/local/bin/api"]
