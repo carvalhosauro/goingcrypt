@@ -97,12 +97,13 @@ func main() {
 	// Services
 	authSvc := core.NewAuthService(userRepo, tokenRepo, transactor, generator, hasher, tokenManager, totpAdapter, cfg.jwt.issuer)
 	linkSvc := core.NewLinkService(linkRepo, transactor, generator)
+	adminUserSvc := core.NewAdminUserService(userRepo)
 
 	// HTTP handlers
 	healthHandler := adapthttp.NewHealthHandler()
 	authHandler := adapthttp.NewAuthHandler(authSvc)
 	linkHandler := adapthttp.NewLinkHandler(linkSvc)
-	adminHandler := adapthttp.NewAdminHandler(linkSvc)
+	adminHandler := adapthttp.NewAdminHandler(linkSvc, adminUserSvc)
 
 	// Router
 	r := chi.NewRouter()
