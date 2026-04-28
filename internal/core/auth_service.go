@@ -376,7 +376,11 @@ func (s *AuthService) issueTokenPair(ctx context.Context, userID uuid.UUID, role
 }
 
 func (s *AuthService) issueTokenPairInTx(ctx context.Context, userID uuid.UUID, role domain.UserRole, deviceName, ipAddress, userAgent string) (string, string, error) {
-	accessToken, err := s.tokenManager.GenerateAccessToken(ctx, userID, role)
+	claims := ports.TokenClaims{
+		UserID: userID,
+		Role:   role,
+	}
+	accessToken, err := s.tokenManager.GenerateAccessToken(ctx, claims)
 	if err != nil {
 		return "", "", fmt.Errorf("generating access token: %w", err)
 	}

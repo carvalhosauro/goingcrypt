@@ -45,7 +45,7 @@ func newAuthFixture() *authFixture {
 
 // setupTokenPair sets up the mocks for issueTokenPair (GenerateAccessToken + storeRefreshToken).
 func (f *authFixture) setupTokenPair() {
-	f.tokenMgr.On("GenerateAccessToken", mock.Anything, mock.Anything, mock.Anything).Return("access-token", nil).Once()
+	f.tokenMgr.On("GenerateAccessToken", mock.Anything, mock.Anything).Return("access-token", nil).Once()
 	f.gen.On("GenerateUUID", mock.Anything).Return(uuid.New(), nil).Once()
 	f.tokenRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.RefreshToken")).Return(nil).Once()
 }
@@ -152,7 +152,7 @@ func TestSignUp_GenerateAccessTokenError(t *testing.T) {
 	f.gen.On("GenerateUUID", mock.Anything).Return(uuid.New(), nil).Once()
 	f.hasher.On("Hash", mock.Anything, "pw").Return("hashed", nil)
 	f.userRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.User")).Return(nil)
-	f.tokenMgr.On("GenerateAccessToken", mock.Anything, mock.Anything, mock.Anything).Return("", tokenErr).Once()
+	f.tokenMgr.On("GenerateAccessToken", mock.Anything, mock.Anything).Return("", tokenErr).Once()
 
 	_, err := f.svc.SignUp(context.Background(), services.SignUpInput{Username: "alice", Password: "pw"})
 
@@ -372,7 +372,7 @@ func TestRefreshTokens_HappyPath(t *testing.T) {
 	f.tx.On("RunInTx", mock.Anything, mock.Anything).Return(nil)
 	// GenerateUUID: once for newID (ReplacedBy), once inside storeRefreshToken
 	f.gen.On("GenerateUUID", mock.Anything).Return(uuid.New(), nil).Once()
-	f.tokenMgr.On("GenerateAccessToken", mock.Anything, mock.Anything, mock.Anything).Return("access-token", nil).Once()
+	f.tokenMgr.On("GenerateAccessToken", mock.Anything, mock.Anything).Return("access-token", nil).Once()
 	f.gen.On("GenerateUUID", mock.Anything).Return(uuid.New(), nil).Once()
 	f.tokenRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.RefreshToken")).Return(nil).Once()
 	f.tokenRepo.On("Update", mock.Anything, mock.AnythingOfType("*domain.RefreshToken")).Return(nil).Once()
@@ -438,7 +438,7 @@ func TestRefreshTokens_UpdateOldTokenError(t *testing.T) {
 	f.userRepo.On("GetByID", mock.Anything, mock.Anything).Return(&domain.User{Role: domain.UserRoleUser}, nil).Once()
 	f.tx.On("RunInTx", mock.Anything, mock.Anything).Return(nil)
 	f.gen.On("GenerateUUID", mock.Anything).Return(uuid.New(), nil).Once()
-	f.tokenMgr.On("GenerateAccessToken", mock.Anything, mock.Anything, mock.Anything).Return("access-token", nil).Once()
+	f.tokenMgr.On("GenerateAccessToken", mock.Anything, mock.Anything).Return("access-token", nil).Once()
 	f.gen.On("GenerateUUID", mock.Anything).Return(uuid.New(), nil).Once()
 	f.tokenRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.RefreshToken")).Return(nil).Once()
 	f.tokenRepo.On("Update", mock.Anything, mock.AnythingOfType("*domain.RefreshToken")).Return(updateErr).Once()

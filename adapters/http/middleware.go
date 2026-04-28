@@ -16,9 +16,9 @@ func AuthMiddleware(tm ports.TokenManager) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			header := r.Header.Get("Authorization")
 			if token, ok := strings.CutPrefix(header, "Bearer "); ok {
-				if userID, role, err := tm.ValidateAccessToken(r.Context(), token); err == nil {
-					ctx := context.WithValue(r.Context(), userIDKey, userID)
-					ctx = context.WithValue(ctx, userRoleKey, role)
+				if claims, err := tm.ValidateAccessToken(r.Context(), token); err == nil {
+					ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)
+					ctx = context.WithValue(ctx, userRoleKey, claims.Role)
 					r = r.WithContext(ctx)
 				}
 			}
