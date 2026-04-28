@@ -149,3 +149,18 @@ func (r *linkRepository) List(ctx context.Context, opts ...repository.LinkOption
 	}
 	return links, nil
 }
+
+func (r *linkRepository) ListAccessLogs(ctx context.Context, limit, offset int) ([]domain.LinkAccessEntry, error) {
+	const query = `
+		SELECT lal.id, lal.link_id, l.slug, lal.ip_address, lal.user_agent, lal.opened_at
+		FROM link_access_logs lal
+		JOIN links l ON l.id = lal.link_id
+		ORDER BY lal.opened_at DESC
+		LIMIT $1 OFFSET $2
+	`
+	var entries []domain.LinkAccessEntry
+	if err := r.conn(ctx).SelectContext(ctx, &entries, query, limit, offset); err != nil {
+		return nil, err
+	}
+	return entries, nil
+}

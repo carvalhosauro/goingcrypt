@@ -62,8 +62,30 @@ func NewLinkHandler(service services.LinkService) *LinkHandler {
 
 func (h *LinkHandler) RegisterRoutes(r chi.Router) {
 	r.Post("/", h.Create)
+	r.Get("/", h.List)
 	r.Get("/{slug}", h.Access)
+	r.Post("/{slug}/access", h.Access)
 	r.Delete("/{slug}", h.Delete)
+}
+
+func (h *LinkHandler) List(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(userIDKey).(uuid.UUID)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	out, err := h.service.ListMyLinks(r.Context(), services.ListMyLinksInput{
+		UserID: userID,
+		Limit:  queryInt(r, "limit", 50),
+		Offset: queryInt(r, "offset", 0),
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list links")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (h *LinkHandler) Create(w http.ResponseWriter, r *http.Request) {
