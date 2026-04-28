@@ -62,4 +62,5 @@ type LinkRepository interface {
 	InvalidateExpiredLinks(ctx context.Context) error
 	Delete(ctx context.Context, slug string) error
 	List(ctx context.Context, opts ...LinkOption) ([]domain.Link, error)
+	ListAccessLogs(ctx context.Context, limit, offset int) ([]domain.LinkAccessEntry, error)
 }
