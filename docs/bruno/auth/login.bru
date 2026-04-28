@@ -26,26 +26,19 @@ script:post-response {
 }
 
 docs {
-  Authenticates a user. Two possible success flows:
-
-  **Flow 1 — MFA not enabled**
-  Returns `access_token` and `refresh_token` immediately.
-
-  **Flow 2 — MFA enabled**
-  Returns `{ "mfa_required": true }`. The client must re-send the request
-  including the `mfa_code` field (6-digit TOTP from Google Authenticator).
+  Authenticates a user with username and password.
+  Returns `access_token` and `refresh_token` on success.
 
   **Request body**
-  | Field        | Type   | Required | Description                                         |
-  |--------------|--------|----------|-----------------------------------------------------|
-  | username     | string | ✅       |                                                     |
-  | password     | string | ✅       |                                                     |
-  | mfa_code     | string | ❌       | 6-digit TOTP code — include to complete MFA in one step |
-  | device_name  | string | ❌       | Human-readable device label                         |
+  | Field        | Type   | Required | Description                     |
+  |--------------|--------|----------|---------------------------------|
+  | username     | string | ✅       |                                 |
+  | password     | string | ✅       |                                 |
+  | device_name  | string | ❌       | Human-readable device label     |
 
   **Responses**
-  | Status | Meaning                                            |
-  |--------|----------------------------------------------------|
-  | 200    | Authenticated — tokens in body (or mfa_required)  |
-  | 401    | Invalid credentials or invalid MFA code            |
+  | Status | Meaning              |
+  |--------|----------------------|
+  | 200    | Authenticated        |
+  | 401    | Invalid credentials  |
 }

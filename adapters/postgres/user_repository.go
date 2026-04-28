@@ -28,8 +28,8 @@ func (r *userRepository) conn(ctx context.Context) dbConn {
 
 func (r *userRepository) Create(ctx context.Context, user *domain.User) error {
 	const query = `
-		INSERT INTO users (id, username, password, mfa_enabled, mfa_secret, recovery_codes)
-		VALUES (:id, :username, :password, :mfa_enabled, :mfa_secret, :recovery_codes)
+		INSERT INTO users (id, username, password, role)
+		VALUES (:id, :username, :password, :role)
 	`
 	_, err := r.conn(ctx).NamedExecContext(ctx, query, user)
 	return err
@@ -37,7 +37,7 @@ func (r *userRepository) Create(ctx context.Context, user *domain.User) error {
 
 func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
 	const query = `
-		SELECT id, username, password, mfa_enabled, mfa_secret, recovery_codes, created_at, deleted_at
+		SELECT id, username, password, role, created_at, deleted_at
 		FROM users
 		WHERE id = $1
 	`
@@ -53,7 +53,7 @@ func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Use
 
 func (r *userRepository) GetByUsername(ctx context.Context, username string) (*domain.User, error) {
 	const query = `
-		SELECT id, username, password, mfa_enabled, mfa_secret, recovery_codes, created_at, deleted_at
+		SELECT id, username, password, role, created_at, deleted_at
 		FROM users
 		WHERE username = $1
 	`
@@ -70,11 +70,9 @@ func (r *userRepository) GetByUsername(ctx context.Context, username string) (*d
 func (r *userRepository) Update(ctx context.Context, user *domain.User) error {
 	const query = `
 		UPDATE users
-		SET password       = :password,
-		    mfa_enabled    = :mfa_enabled,
-		    mfa_secret     = :mfa_secret,
-		    recovery_codes = :recovery_codes,
-		    deleted_at     = :deleted_at
+		SET password   = :password,
+		    role        = :role,
+		    deleted_at  = :deleted_at
 		WHERE id = :id
 	`
 	_, err := r.conn(ctx).NamedExecContext(ctx, query, user)

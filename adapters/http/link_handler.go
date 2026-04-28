@@ -13,7 +13,10 @@ import (
 
 type contextKey string
 
-const userIDKey contextKey = "userID"
+const (
+	userIDKey   contextKey = "userID"
+	userRoleKey contextKey = "userRole"
+)
 
 type createLinkRequest struct {
 	Key          string  `json:"key"           validate:"required"`

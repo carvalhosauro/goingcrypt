@@ -8,20 +8,24 @@ import (
 	"github.com/carvalhosauro/goingcrypt/internal/domain"
 	"github.com/carvalhosauro/goingcrypt/internal/ports/services"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 type AdminHandler struct {
 	linkSvc services.AdminLinkService
+	userSvc services.AdminUserService
 }
 
-func NewAdminHandler(linkSvc services.AdminLinkService) *AdminHandler {
-	return &AdminHandler{linkSvc: linkSvc}
+func NewAdminHandler(linkSvc services.AdminLinkService, userSvc services.AdminUserService) *AdminHandler {
+	return &AdminHandler{linkSvc: linkSvc, userSvc: userSvc}
 }
 
 func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 	r.Use(RequireAuth)
+	r.Use(RequireAdmin)
 	r.Get("/links", h.ListLinks)
 	r.Get("/links/{id}", h.GetLink)
+	r.Post("/users/{id}/grant-admin", h.GrantAdmin)
 }
 
 func (h *AdminHandler) ListLinks(w http.ResponseWriter, r *http.Request) {
@@ -54,6 +58,25 @@ func (h *AdminHandler) GetLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, out)
+}
+
+func (h *AdminHandler) GrantAdmin(w http.ResponseWriter, r *http.Request) {
+	targetID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+
+	if err := h.userSvc.GrantAdmin(r.Context(), services.GrantAdminInput{TargetUserID: targetID}); err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to grant admin")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // queryInt reads an integer query parameter, returning def if absent or invalid.
