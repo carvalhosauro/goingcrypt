@@ -86,7 +86,6 @@ func main() {
 	generator := adapters.NewGenerator()
 	hasher := adapters.NewArgon2idHasher()
 	tokenManager := adapters.NewJWTTokenManager([]byte(cfg.jwt.secret), cfg.jwt.issuer)
-	totpAdapter := adapters.NewTOTPAdapter()
 
 	// Repositories
 	transactor := postgres.NewTransactor(db)
@@ -95,7 +94,7 @@ func main() {
 	linkRepo := postgres.NewLinkRepository(db)
 
 	// Services
-	authSvc := core.NewAuthService(userRepo, tokenRepo, transactor, generator, hasher, tokenManager, totpAdapter, cfg.jwt.issuer)
+	authSvc := core.NewAuthService(userRepo, tokenRepo, transactor, generator, hasher, tokenManager)
 	linkSvc := core.NewLinkService(linkRepo, transactor, generator)
 	adminUserSvc := core.NewAdminUserService(userRepo)
 

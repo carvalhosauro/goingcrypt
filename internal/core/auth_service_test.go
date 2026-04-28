@@ -2,7 +2,6 @@ package core_test
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"testing"
 	"time"
@@ -23,7 +22,6 @@ type authFixture struct {
 	gen       *mocks.Generator
 	hasher    *mocks.Hasher
 	tokenMgr  *mocks.TokenManager
-	totp      *mocks.TOTPManager
 	svc       *core.AuthService
 }
 
@@ -35,10 +33,9 @@ func newAuthFixture() *authFixture {
 		gen:       &mocks.Generator{},
 		hasher:    &mocks.Hasher{},
 		tokenMgr:  &mocks.TokenManager{},
-		totp:      &mocks.TOTPManager{},
 	}
 	f.svc = core.NewAuthService(
-		f.userRepo, f.tokenRepo, f.tx, f.gen, f.hasher, f.tokenMgr, f.totp, "goingcrypt",
+		f.userRepo, f.tokenRepo, f.tx, f.gen, f.hasher, f.tokenMgr,
 	)
 	return f
 }
@@ -58,7 +55,6 @@ func assertExpectations(t *testing.T, f *authFixture) {
 	f.gen.AssertExpectations(t)
 	f.hasher.AssertExpectations(t)
 	f.tokenMgr.AssertExpectations(t)
-	f.totp.AssertExpectations(t)
 }
 
 // ─── SignUp ───────────────────────────────────────────────────────────────────
@@ -176,7 +172,6 @@ func TestLogin_HappyPath(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "access-token", out.AccessToken)
 	assert.NotEmpty(t, out.RefreshToken)
-	assert.False(t, out.MFARequired)
 	assertExpectations(t, f)
 }
 
@@ -233,121 +228,6 @@ func TestLogin_WrongPassword(t *testing.T) {
 	_, err := f.svc.Login(context.Background(), services.LoginInput{Username: "alice", Password: "wrong"})
 
 	assert.ErrorIs(t, err, domain.ErrInvalidCredentials)
-}
-
-func TestLogin_MFARequired(t *testing.T) {
-	f := newAuthFixture()
-	userID := uuid.New()
-	user := &domain.User{ID: userID, Password: "hashed-pw", MfaEnabled: true}
-	f.userRepo.On("GetByUsername", mock.Anything, "alice").Return(user, nil)
-	f.hasher.On("Verify", mock.Anything, "pw", "hashed-pw").Return(true, nil)
-
-	out, err := f.svc.Login(context.Background(), services.LoginInput{Username: "alice", Password: "pw"})
-
-	assert.NoError(t, err)
-	assert.True(t, out.MFARequired)
-	assert.Equal(t, userID, out.UserID)
-	assert.Empty(t, out.AccessToken)
-	f.tokenMgr.AssertNotCalled(t, "GenerateAccessToken")
-}
-
-// ─── LoginWithMFA ─────────────────────────────────────────────────────────────
-
-func TestLoginWithMFA_HappyPath(t *testing.T) {
-	f := newAuthFixture()
-	user := &domain.User{
-		ID:         uuid.New(),
-		Password:   "hashed-pw",
-		MfaEnabled: true,
-		MfaSecret:  sql.NullString{String: "TOTP_SECRET", Valid: true},
-	}
-	f.userRepo.On("GetByUsername", mock.Anything, "alice").Return(user, nil)
-	f.hasher.On("Verify", mock.Anything, "pw", "hashed-pw").Return(true, nil)
-	f.totp.On("Validate", mock.Anything, "TOTP_SECRET", "123456").Return(true)
-	f.setupTokenPair()
-
-	out, err := f.svc.LoginWithMFA(context.Background(), services.LoginWithMFAInput{
-		Username: "alice", Password: "pw", Code: "123456",
-	})
-
-	assert.NoError(t, err)
-	assert.Equal(t, "access-token", out.AccessToken)
-	assert.NotEmpty(t, out.RefreshToken)
-	assertExpectations(t, f)
-}
-
-func TestLoginWithMFA_UserNotFound(t *testing.T) {
-	f := newAuthFixture()
-	f.userRepo.On("GetByUsername", mock.Anything, "alice").Return(nil, nil)
-
-	_, err := f.svc.LoginWithMFA(context.Background(), services.LoginWithMFAInput{
-		Username: "alice", Password: "pw", Code: "000000",
-	})
-
-	assert.ErrorIs(t, err, domain.ErrInvalidCredentials)
-}
-
-func TestLoginWithMFA_WrongPassword(t *testing.T) {
-	f := newAuthFixture()
-	user := &domain.User{ID: uuid.New(), Password: "hashed-pw"}
-	f.userRepo.On("GetByUsername", mock.Anything, "alice").Return(user, nil)
-	f.hasher.On("Verify", mock.Anything, "wrong", "hashed-pw").Return(false, nil)
-
-	_, err := f.svc.LoginWithMFA(context.Background(), services.LoginWithMFAInput{
-		Username: "alice", Password: "wrong", Code: "123456",
-	})
-
-	assert.ErrorIs(t, err, domain.ErrInvalidCredentials)
-}
-
-func TestLoginWithMFA_MFANotEnabled(t *testing.T) {
-	f := newAuthFixture()
-	user := &domain.User{ID: uuid.New(), Password: "hashed-pw", MfaEnabled: false}
-	f.userRepo.On("GetByUsername", mock.Anything, "alice").Return(user, nil)
-	f.hasher.On("Verify", mock.Anything, "pw", "hashed-pw").Return(true, nil)
-
-	_, err := f.svc.LoginWithMFA(context.Background(), services.LoginWithMFAInput{
-		Username: "alice", Password: "pw", Code: "123456",
-	})
-
-	assert.ErrorIs(t, err, domain.ErrMFANotEnabled)
-}
-
-func TestLoginWithMFA_SecretNotValid(t *testing.T) {
-	f := newAuthFixture()
-	user := &domain.User{
-		ID:         uuid.New(),
-		Password:   "hashed-pw",
-		MfaEnabled: true,
-		MfaSecret:  sql.NullString{Valid: false},
-	}
-	f.userRepo.On("GetByUsername", mock.Anything, "alice").Return(user, nil)
-	f.hasher.On("Verify", mock.Anything, "pw", "hashed-pw").Return(true, nil)
-
-	_, err := f.svc.LoginWithMFA(context.Background(), services.LoginWithMFAInput{
-		Username: "alice", Password: "pw", Code: "123456",
-	})
-
-	assert.ErrorIs(t, err, domain.ErrMFANotEnabled)
-}
-
-func TestLoginWithMFA_InvalidCode(t *testing.T) {
-	f := newAuthFixture()
-	user := &domain.User{
-		ID:         uuid.New(),
-		Password:   "hashed-pw",
-		MfaEnabled: true,
-		MfaSecret:  sql.NullString{String: "SECRET", Valid: true},
-	}
-	f.userRepo.On("GetByUsername", mock.Anything, "alice").Return(user, nil)
-	f.hasher.On("Verify", mock.Anything, "pw", "hashed-pw").Return(true, nil)
-	f.totp.On("Validate", mock.Anything, "SECRET", "000000").Return(false)
-
-	_, err := f.svc.LoginWithMFA(context.Background(), services.LoginWithMFAInput{
-		Username: "alice", Password: "pw", Code: "000000",
-	})
-
-	assert.ErrorIs(t, err, domain.ErrInvalidMFACode)
 }
 
 // ─── RefreshTokens ────────────────────────────────────────────────────────────
@@ -506,160 +386,5 @@ func TestLogout_UpdateError(t *testing.T) {
 	err := f.svc.Logout(context.Background(), services.LogoutInput{RefreshToken: "raw"})
 
 	assert.ErrorContains(t, err, "revoking token")
-	assert.ErrorIs(t, err, updateErr)
-}
-
-// ─── EnableMFA ────────────────────────────────────────────────────────────────
-
-func TestEnableMFA_HappyPath(t *testing.T) {
-	f := newAuthFixture()
-	userID := uuid.New()
-	user := &domain.User{ID: userID, Username: "alice", MfaEnabled: false}
-	f.userRepo.On("GetByID", mock.Anything, userID).Return(user, nil)
-	f.totp.On("GenerateSecret", mock.Anything).Return("BASE32SECRET", nil)
-	f.totp.On("GenerateProvisioningURI", mock.Anything, "BASE32SECRET", "alice", "goingcrypt").
-		Return("otpauth://totp/goingcrypt:alice?secret=BASE32SECRET")
-
-	out, err := f.svc.EnableMFA(context.Background(), services.EnableMFAInput{UserID: userID})
-
-	assert.NoError(t, err)
-	assert.Equal(t, "BASE32SECRET", out.Secret)
-	assert.Contains(t, out.ProvisioningURI, "BASE32SECRET")
-	assertExpectations(t, f)
-}
-
-func TestEnableMFA_GetByIDError(t *testing.T) {
-	f := newAuthFixture()
-	dbErr := errors.New("db down")
-	userID := uuid.New()
-	f.userRepo.On("GetByID", mock.Anything, userID).Return(nil, dbErr)
-
-	_, err := f.svc.EnableMFA(context.Background(), services.EnableMFAInput{UserID: userID})
-
-	assert.ErrorContains(t, err, "fetching user")
-	assert.ErrorIs(t, err, dbErr)
-}
-
-func TestEnableMFA_UserNotFound(t *testing.T) {
-	f := newAuthFixture()
-	userID := uuid.New()
-	f.userRepo.On("GetByID", mock.Anything, userID).Return(nil, nil)
-
-	_, err := f.svc.EnableMFA(context.Background(), services.EnableMFAInput{UserID: userID})
-
-	assert.ErrorIs(t, err, domain.ErrUserNotFound)
-}
-
-func TestEnableMFA_AlreadyEnabled(t *testing.T) {
-	f := newAuthFixture()
-	userID := uuid.New()
-	user := &domain.User{ID: userID, MfaEnabled: true}
-	f.userRepo.On("GetByID", mock.Anything, userID).Return(user, nil)
-
-	_, err := f.svc.EnableMFA(context.Background(), services.EnableMFAInput{UserID: userID})
-
-	assert.ErrorIs(t, err, domain.ErrMFAAlreadyEnabled)
-	f.totp.AssertNotCalled(t, "GenerateSecret")
-}
-
-func TestEnableMFA_GenerateSecretError(t *testing.T) {
-	f := newAuthFixture()
-	userID := uuid.New()
-	user := &domain.User{ID: userID, MfaEnabled: false}
-	secretErr := errors.New("entropy error")
-	f.userRepo.On("GetByID", mock.Anything, userID).Return(user, nil)
-	f.totp.On("GenerateSecret", mock.Anything).Return("", secretErr)
-
-	_, err := f.svc.EnableMFA(context.Background(), services.EnableMFAInput{UserID: userID})
-
-	assert.ErrorContains(t, err, "generating TOTP secret")
-	assert.ErrorIs(t, err, secretErr)
-}
-
-// ─── ConfirmMFA ───────────────────────────────────────────────────────────────
-
-func TestConfirmMFA_HappyPath(t *testing.T) {
-	f := newAuthFixture()
-	userID := uuid.New()
-	user := &domain.User{ID: userID, MfaEnabled: false}
-	f.userRepo.On("GetByID", mock.Anything, userID).Return(user, nil)
-	f.totp.On("Validate", mock.Anything, "SECRET", "123456").Return(true)
-	f.userRepo.On("Update", mock.Anything, mock.MatchedBy(func(u *domain.User) bool {
-		return u.MfaEnabled && u.MfaSecret.Valid && u.MfaSecret.String == "SECRET" && len(u.RecoveryCodes) == 8
-	})).Return(nil)
-
-	out, err := f.svc.ConfirmMFA(context.Background(), services.ConfirmMFAInput{
-		UserID: userID, Secret: "SECRET", Code: "123456",
-	})
-
-	assert.NoError(t, err)
-	assert.True(t, user.MfaEnabled)
-	assert.Len(t, out.RecoveryCodes, 8, "should return 8 one-time recovery codes")
-	assertExpectations(t, f)
-}
-
-func TestConfirmMFA_GetByIDError(t *testing.T) {
-	f := newAuthFixture()
-	dbErr := errors.New("db down")
-	userID := uuid.New()
-	f.userRepo.On("GetByID", mock.Anything, userID).Return(nil, dbErr)
-
-	_, err := f.svc.ConfirmMFA(context.Background(), services.ConfirmMFAInput{UserID: userID})
-
-	assert.ErrorContains(t, err, "fetching user")
-	assert.ErrorIs(t, err, dbErr)
-}
-
-func TestConfirmMFA_UserNotFound(t *testing.T) {
-	f := newAuthFixture()
-	userID := uuid.New()
-	f.userRepo.On("GetByID", mock.Anything, userID).Return(nil, nil)
-
-	_, err := f.svc.ConfirmMFA(context.Background(), services.ConfirmMFAInput{UserID: userID})
-
-	assert.ErrorIs(t, err, domain.ErrUserNotFound)
-}
-
-func TestConfirmMFA_AlreadyEnabled(t *testing.T) {
-	f := newAuthFixture()
-	userID := uuid.New()
-	user := &domain.User{ID: userID, MfaEnabled: true}
-	f.userRepo.On("GetByID", mock.Anything, userID).Return(user, nil)
-
-	_, err := f.svc.ConfirmMFA(context.Background(), services.ConfirmMFAInput{UserID: userID, Secret: "S", Code: "C"})
-
-	assert.ErrorIs(t, err, domain.ErrMFAAlreadyEnabled)
-	f.totp.AssertNotCalled(t, "Validate")
-}
-
-func TestConfirmMFA_InvalidCode(t *testing.T) {
-	f := newAuthFixture()
-	userID := uuid.New()
-	user := &domain.User{ID: userID, MfaEnabled: false}
-	f.userRepo.On("GetByID", mock.Anything, userID).Return(user, nil)
-	f.totp.On("Validate", mock.Anything, "SECRET", "000000").Return(false)
-
-	_, err := f.svc.ConfirmMFA(context.Background(), services.ConfirmMFAInput{
-		UserID: userID, Secret: "SECRET", Code: "000000",
-	})
-
-	assert.ErrorIs(t, err, domain.ErrInvalidMFACode)
-	f.userRepo.AssertNotCalled(t, "Update")
-}
-
-func TestConfirmMFA_UpdateError(t *testing.T) {
-	f := newAuthFixture()
-	userID := uuid.New()
-	user := &domain.User{ID: userID, MfaEnabled: false}
-	updateErr := errors.New("db error")
-	f.userRepo.On("GetByID", mock.Anything, userID).Return(user, nil)
-	f.totp.On("Validate", mock.Anything, "SECRET", "123456").Return(true)
-	f.userRepo.On("Update", mock.Anything, mock.Anything).Return(updateErr)
-
-	_, err := f.svc.ConfirmMFA(context.Background(), services.ConfirmMFAInput{
-		UserID: userID, Secret: "SECRET", Code: "123456",
-	})
-
-	assert.ErrorContains(t, err, "enabling MFA")
 	assert.ErrorIs(t, err, updateErr)
 }
