@@ -35,3 +35,11 @@ func (m *UserRepository) GetByUsername(ctx context.Context, username string) (*d
 func (m *UserRepository) Update(ctx context.Context, user *domain.User) error {
 	return m.Called(ctx, user).Error(0)
 }
+
+func (m *UserRepository) List(ctx context.Context, limit, offset int) ([]domain.User, error) {
+	args := m.Called(ctx, limit, offset)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.User), args.Error(1)
+}

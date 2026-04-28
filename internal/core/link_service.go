@@ -116,6 +116,33 @@ func (s *LinkService) CreateLink(ctx context.Context, in services.CreateLinkInpu
 	}, nil
 }
 
+func (s *LinkService) ListMyLinks(ctx context.Context, in services.ListMyLinksInput) (services.ListMyLinksOutput, error) {
+	limit := in.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+
+	links, err := s.linkRepo.List(ctx,
+		repository.WithCreatedBy(in.UserID),
+		repository.WithPagination(limit, in.Offset),
+	)
+	if err != nil {
+		return services.ListMyLinksOutput{}, fmt.Errorf("listing my links: %w", err)
+	}
+
+	summaries := make([]services.MyLinkSummary, len(links))
+	for i, l := range links {
+		summaries[i] = services.MyLinkSummary{
+			Slug:      l.Slug,
+			Status:    string(l.Status),
+			ExpiresAt: l.ExpiresAt,
+			CreatedAt: l.CreatedAt,
+		}
+	}
+
+	return services.ListMyLinksOutput{Links: summaries}, nil
+}
+
 func (s *LinkService) DeleteLink(ctx context.Context, in services.DeleteLinkInput) error {
 	link, err := s.linkRepo.GetBySlug(ctx, in.Slug)
 	if err != nil {
@@ -167,6 +194,34 @@ func (s *LinkService) ListLinks(ctx context.Context, in services.AdminListLinksI
 		Total:  len(summaries),
 		Limit:  limit,
 		Offset: in.Offset,
+	}, nil
+}
+
+func (s *LinkService) ListAccessLogs(ctx context.Context, in services.AdminListAccessLogsInput) (services.AdminListAccessLogsOutput, error) {
+	limit := in.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+
+	entries, err := s.linkRepo.ListAccessLogs(ctx, limit, in.Offset)
+	if err != nil {
+		return services.AdminListAccessLogsOutput{}, fmt.Errorf("listing access logs: %w", err)
+	}
+
+	logs := make([]services.AdminAccessLogEntry, len(entries))
+	for i, e := range entries {
+		logs[i] = services.AdminAccessLogEntry{
+			ID:        e.ID.String(),
+			Slug:      e.Slug,
+			IPAddress: e.IPAddress,
+			UserAgent: e.UserAgent,
+			OpenedAt:  e.OpenedAt,
+		}
+	}
+
+	return services.AdminListAccessLogsOutput{
+		Logs:  logs,
+		Total: len(logs),
 	}, nil
 }
 

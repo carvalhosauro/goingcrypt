@@ -44,3 +44,11 @@ func (m *LinkRepository) List(ctx context.Context, opts ...repository.LinkOption
 	args := m.Called(ctx, opts)
 	return args.Get(0).([]domain.Link), args.Error(1)
 }
+
+func (m *LinkRepository) ListAccessLogs(ctx context.Context, limit, offset int) ([]domain.LinkAccessEntry, error) {
+	args := m.Called(ctx, limit, offset)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.LinkAccessEntry), args.Error(1)
+}
